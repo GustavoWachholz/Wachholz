@@ -60,6 +60,13 @@ describe('getAppShellMarkup', () => {
         period: { year: 2026, month: 8 },
         categoryType: 'expense',
         categories: [],
+        transactions: [],
+        summary: {
+          incomeCents: 0,
+          expenseCents: 0,
+          balanceCents: 0,
+          transactionCount: 0,
+        },
       },
     }));
 

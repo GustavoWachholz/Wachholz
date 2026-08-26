@@ -299,6 +299,8 @@ Critério de aceitação: mês e categorias corretos são carregados sem exibir 
 
 Objetivo: criar e consultar receitas e despesas.
 
+Estado: implementação local concluída, com cadastro persistente no Supabase, validação por tipo e mês, valores mantidos em centavos inteiros, lista cronológica em cards mobile e totais recalculados após cada inclusão. Categorias desativadas não podem receber novos lançamentos, mas continuam identificadas no histórico. A validação integrada depende da configuração do Supabase.
+
 - cadastrar lançamento
 - validar descrição, valor, data e categoria
 - exibir lista cronológica em cards mobile
@@ -396,8 +398,10 @@ index.html
 │       ├── finance/
 │       │   ├── finance-context.js
 │       │   ├── finance-view.js
+│       │   ├── financial-summary.js
 │       │   ├── services/
-│       │   │   └── financial-category-service.js
+│       │   │   ├── financial-category-service.js
+│       │   │   └── financial-transaction-service.js
 │       │   └── utils/
 │       │       ├── finance-money.js
 │       │       └── finance-period.js
@@ -445,6 +449,8 @@ index.html
 │       ├── finance-period.test.js
 │       ├── finance-view.test.js
 │       ├── financial-category-service.test.js
+│       ├── financial-summary.test.js
+│       ├── financial-transaction-service.test.js
 │       ├── hash-router.test.js
 │       ├── mobile-shell.test.js
 │       ├── public-config.test.js

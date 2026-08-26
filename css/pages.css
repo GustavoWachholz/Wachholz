@@ -209,23 +209,58 @@
   font-size: 1.6rem;
 }
 
-.finance-categories-panel {
+.financial-totals,
+.financial-entry,
+.financial-history {
   display: grid;
   gap: 1rem;
   margin-block-end: 1rem;
   padding: 1rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-large);
-  background: var(--color-finance);
+  background: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
-.finance-categories-panel__header {
-  display: grid;
-  gap: 1rem;
+.financial-totals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 0 1rem;
+  background: var(--color-finance);
 }
 
-.finance-categories-panel__header h2 {
+.financial-totals div {
+  min-width: 0;
+}
+
+.financial-totals dt {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.financial-totals dd {
+  margin: 0.25rem 0 0;
+  font-size: clamp(1rem, 5.2vw, 1.35rem);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.financial-totals__balance {
+  grid-column: 1 / -1;
+}
+
+.financial-totals__count dd {
+  font-size: 1.1rem;
+}
+
+.financial-entry__header,
+.financial-history__header {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.financial-entry__header h2,
+.financial-history__header h2 {
   margin: 0;
 }
 
@@ -253,26 +288,148 @@
   background: var(--color-primary);
 }
 
-.finance-categories {
+.finance-type-selector button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.financial-entry-form {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.85rem;
+}
+
+.financial-entry-form input,
+.financial-entry-form select,
+.financial-entry-form textarea {
+  width: 100%;
+  min-height: 48px;
+}
+
+.financial-entry-form textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.financial-entry-form__details {
+  min-width: 0;
+}
+
+.financial-entry-form__details summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--color-primary);
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.financial-entry-form__details[open] summary {
+  margin-block-end: 0.5rem;
+}
+
+.financial-entry-form__submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+.financial-transactions {
+  display: grid;
+  gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.finance-categories li {
-  min-height: 44px;
-  padding: 0.7rem 0.85rem;
-  border-radius: 0.8rem;
-  background: rgb(255 255 255 / 64%);
+.financial-transaction {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--color-border);
+  border-inline-start: 0.3rem solid var(--color-muted);
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 68%);
+}
+
+.financial-transaction--income {
+  border-inline-start-color: #23805f;
+}
+
+.financial-transaction--expense {
+  border-inline-start-color: #b24a42;
+}
+
+.financial-transaction__main {
+  min-width: 0;
+}
+
+.financial-transaction__type {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.financial-transaction h3 {
+  margin: 0.2rem 0;
+  font-size: 1.05rem;
   overflow-wrap: anywhere;
 }
 
+.financial-transaction p,
+.financial-transaction small {
+  display: block;
+  margin: 0;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}
+
+.financial-transaction small {
+  margin-block-start: 0.35rem;
+}
+
+.financial-transaction__amount {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.financial-transaction--income .financial-transaction__amount {
+  color: #176348;
+}
+
+.financial-transaction--expense .financial-transaction__amount {
+  color: #91372f;
+}
+
 @media (min-width: 40rem) {
-  .finance-categories-panel__header {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, auto);
+  .financial-totals {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .financial-totals__balance {
+    grid-column: auto;
+  }
+
+  .financial-entry-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .financial-entry-form__description,
+  .financial-entry-form__category,
+  .financial-entry-form__details,
+  .financial-entry-form .form-message,
+  .financial-entry-form__submit {
+    grid-column: 1 / -1;
+  }
+
+  .financial-transaction {
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
+  }
+
+  .financial-transaction__amount {
+    text-align: end;
   }
 }
 

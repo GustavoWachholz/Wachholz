@@ -9,6 +9,7 @@ import { validatePublicConfig } from './lib/public-config.js';
 import { getSupabaseClient } from './lib/supabase-client.js';
 import { createFinanceController } from './modules/finance/finance-context.js';
 import { createFinancialCategoryService } from './modules/finance/services/financial-category-service.js';
+import { createFinancialTransactionService } from './modules/finance/services/financial-transaction-service.js';
 import { getDocumentTitle, resolveProtectedRoute } from './router/app-routes.js';
 import { createHashRouter } from './router/hash-router.js';
 import { renderAppShell } from './shell/app-shell-view.js';
@@ -63,6 +64,7 @@ async function bootstrap(documentRoot) {
     const authService = createAuthService(client);
     const householdService = createHouseholdService(client);
     const financialCategoryService = createFinancialCategoryService(client);
+    const financialTransactionService = createFinancialTransactionService(client);
     const shoppingListService = createShoppingListService(client);
     const shoppingItemService = createShoppingItemService(client);
     const shoppingItemsRealtime = createShoppingItemsRealtime(client);
@@ -70,7 +72,7 @@ async function bootstrap(documentRoot) {
     let authenticatedUser = null;
     let authState = { status: 'loading', user: null, error: null };
     let householdState = { status: 'idle', household: null, error: null };
-    let financeState = { status: 'idle', period: null, categoryType: 'expense', categories: [], error: null };
+    let financeState;
     let shoppingState = { status: 'idle', lists: [], error: null };
     let shoppingItemsState = { status: 'idle', listId: null, items: [], error: null };
     let currentHash = window.location.hash;
@@ -157,6 +159,10 @@ async function bootstrap(documentRoot) {
           onFinancePreviousMonth: () => financeController.shiftMonth(-1),
           onFinanceNextMonth: () => financeController.shiftMonth(1),
           onFinanceCategoryTypeChange: (type) => financeController.selectCategoryType(type),
+          onFinanceCreate: (input) => financeController.create({
+            ...input,
+            userId: authenticatedUser?.id,
+          }),
           onFinanceRetry: () => financeController.load({
             householdId: householdState.householdId,
             period: financeState.period,
@@ -261,6 +267,7 @@ async function bootstrap(documentRoot) {
 
     const financeController = createFinanceController({
       categoryService: financialCategoryService,
+      transactionService: financialTransactionService,
       onStateChange: (state) => {
         const finishedLoading = financeState.status === 'loading'
           && (state.status === 'ready' || state.status === 'error');

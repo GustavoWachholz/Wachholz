@@ -533,6 +533,7 @@ A troca do mês deve atualizar indicadores e lançamentos.
 Receitas
 Despesas
 Saldo
+Quantidade de lançamentos
 ```
 
 ### Fórmulas
@@ -541,7 +542,10 @@ Saldo
 receitas = soma(amount where type = 'income')
 despesas = soma(amount where type = 'expense')
 saldo = receitas - despesas
+quantidade = total de registros do mês
 ```
+
+Os cálculos devem usar centavos inteiros no JavaScript. O valor enviado ao PostgreSQL deve ser uma string decimal, sem operações de negócio com ponto flutuante.
 
 ---
 
@@ -592,6 +596,9 @@ Despesa
 - data obrigatória
 - categoria obrigatória
 - categoria deve ser compatível com o tipo
+- data deve pertencer ao mês selecionado
+- categorias inativas não podem ser usadas em novos lançamentos
+- categorias posteriormente inativadas devem continuar visíveis no histórico existente
 
 ### Valor
 

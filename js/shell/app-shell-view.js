@@ -179,6 +179,7 @@ export function renderAppShell(
     onFinancePreviousMonth = () => {},
     onFinanceNextMonth = () => {},
     onFinanceCategoryTypeChange = () => {},
+    onFinanceCreate = () => {},
     onFinanceRetry = () => {},
     onShoppingCreate = () => {},
     onShoppingRetry = () => {},
@@ -205,6 +206,7 @@ export function renderAppShell(
       onPreviousMonth: onFinancePreviousMonth,
       onNextMonth: onFinanceNextMonth,
       onCategoryTypeChange: onFinanceCategoryTypeChange,
+      onCreate: onFinanceCreate,
       onRetry: onFinanceRetry,
     });
   }

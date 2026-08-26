@@ -1,4 +1,6 @@
+import { calculateFinancialSummary, createEmptyFinancialSummary } from './financial-summary.js';
 import { validateFinanceType } from './services/financial-category-service.js';
+import { sortFinancialTransactions } from './services/financial-transaction-service.js';
 import {
   createFinancePeriod,
   getCurrentFinancePeriod,
@@ -17,7 +19,14 @@ function createState(
     period,
     categoryType = 'expense',
     categories = [],
+    transactions = [],
+    summary = createEmptyFinancialSummary(),
     error = null,
+    formError = null,
+    isSubmitting = false,
+    notice = null,
+    isCategoryLoading = false,
+    categoryError = null,
   },
 ) {
   return Object.freeze({
@@ -25,17 +34,33 @@ function createState(
     period,
     categoryType,
     categories: Object.freeze([...categories]),
+    transactions: Object.freeze([...transactions]),
+    summary,
     error,
+    formError,
+    isSubmitting,
+    notice,
+    isCategoryLoading,
+    categoryError,
   });
 }
 
 export function createFinanceController({
   categoryService,
+  transactionService,
   now = () => new Date(),
   onStateChange = () => {},
 }) {
   if (!categoryService || typeof categoryService.listByType !== 'function') {
     throw new TypeError('O serviço de categorias financeiras é obrigatório.');
+  }
+
+  if (
+    !transactionService
+    || typeof transactionService.listByPeriod !== 'function'
+    || typeof transactionService.create !== 'function'
+  ) {
+    throw new TypeError('O serviço de lançamentos financeiros é obrigatório.');
   }
 
   if (typeof now !== 'function') {
@@ -51,6 +76,10 @@ export function createFinanceController({
     onStateChange(state);
   }
 
+  function readyState(overrides = {}) {
+    return createState('ready', { ...state, ...overrides });
+  }
+
   async function load({ householdId, period = state.period, type = state.categoryType }) {
     const currentRequest = ++requestVersion;
     const normalizedPeriod = normalizePeriod(period, now);
@@ -59,13 +88,18 @@ export function createFinanceController({
     emit(createState('loading', { period: normalizedPeriod, categoryType }));
 
     try {
-      const categories = await categoryService.listByType({ householdId, type: categoryType });
+      const [categories, transactions] = await Promise.all([
+        categoryService.listByType({ householdId, type: categoryType }),
+        transactionService.listByPeriod({ householdId, period: normalizedPeriod }),
+      ]);
 
       if (currentRequest === requestVersion) {
         emit(createState('ready', {
           period: normalizedPeriod,
           categoryType,
           categories,
+          transactions,
+          summary: calculateFinancialSummary(transactions),
         }));
       }
     } catch (error) {
@@ -82,7 +116,12 @@ export function createFinanceController({
   }
 
   async function selectCategoryType(type) {
-    if (!['ready', 'error'].includes(state.status) || !activeHouseholdId) {
+    if (
+      state.status !== 'ready'
+      || state.isSubmitting
+      || state.isCategoryLoading
+      || !activeHouseholdId
+    ) {
       return state;
     }
 
@@ -92,23 +131,97 @@ export function createFinanceController({
       return state;
     }
 
-    return load({
-      householdId: activeHouseholdId,
-      period: state.period,
-      type: categoryType,
-    });
+    const currentRequest = ++requestVersion;
+    emit(readyState({
+      categoryType,
+      categories: [],
+      formError: null,
+      notice: null,
+      isCategoryLoading: true,
+      categoryError: null,
+    }));
+
+    try {
+      const categories = await categoryService.listByType({
+        householdId: activeHouseholdId,
+        type: categoryType,
+      });
+
+      if (currentRequest === requestVersion) {
+        emit(readyState({ categories, isCategoryLoading: false }));
+      }
+    } catch (categoryError) {
+      if (currentRequest === requestVersion) {
+        emit(readyState({ isCategoryLoading: false, categoryError }));
+      }
+    }
+
+    return state;
   }
 
-  function shiftMonth(monthOffset) {
-    if (state.status !== 'ready') {
+  async function shiftMonth(monthOffset) {
+    if (
+      state.status !== 'ready'
+      || state.isSubmitting
+      || state.isCategoryLoading
+      || !activeHouseholdId
+    ) {
       return state;
     }
 
-    emit(createState('ready', {
+    return load({
+      householdId: activeHouseholdId,
       period: shiftFinancePeriod(state.period, monthOffset),
-      categoryType: state.categoryType,
-      categories: state.categories,
+      type: state.categoryType,
+    });
+  }
+
+  async function create(input) {
+    if (
+      state.status !== 'ready'
+      || state.isSubmitting
+      || state.isCategoryLoading
+      || !activeHouseholdId
+    ) {
+      return state;
+    }
+
+    const currentRequest = ++requestVersion;
+    emit(readyState({
+      formError: null,
+      isSubmitting: true,
+      notice: null,
+      categoryError: null,
     }));
+
+    try {
+      const createdTransaction = await transactionService.create({
+        ...input,
+        householdId: activeHouseholdId,
+        period: state.period,
+        categories: state.categories,
+        type: state.categoryType,
+      });
+
+      if (currentRequest === requestVersion) {
+        const transactions = sortFinancialTransactions([
+          ...state.transactions.filter((transaction) => transaction.id !== createdTransaction.id),
+          createdTransaction,
+        ]);
+        emit(readyState({
+          transactions,
+          summary: calculateFinancialSummary(transactions),
+          formError: null,
+          isSubmitting: false,
+          notice: 'Lançamento cadastrado.',
+        }));
+      }
+    } catch (formError) {
+      if (currentRequest === requestVersion) {
+        emit(readyState({ formError, isSubmitting: false }));
+      }
+    }
+
     return state;
   }
 
@@ -120,6 +233,7 @@ export function createFinanceController({
 
   return Object.freeze({
     clear,
+    create,
     getState: () => state,
     load,
     selectCategoryType,
