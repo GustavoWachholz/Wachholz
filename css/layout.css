@@ -1,0 +1,116 @@
+.site-shell {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+  padding:
+    max(1.25rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    2.5rem
+    max(1rem, env(safe-area-inset-left));
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  margin-block-end: clamp(2.75rem, 12vw, 6rem);
+}
+
+.hero {
+  max-width: 44rem;
+}
+
+.module-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-block-start: 2.5rem;
+}
+
+.section-title {
+  grid-column: 1 / -1;
+  margin-block-end: 0.25rem;
+  font-size: 1rem;
+}
+
+.setup-status {
+  margin-block-start: 1rem;
+}
+
+.site-footer {
+  padding:
+    0 max(1rem, env(safe-area-inset-right))
+    max(1.5rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
+  color: var(--color-muted);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.authenticated-shell {
+  min-height: 100dvh;
+}
+
+.authenticated-shell[hidden],
+[data-public-root][hidden],
+[data-public-footer][hidden] {
+  display: none;
+}
+
+.app-layout {
+  min-height: 100dvh;
+}
+
+.app-main {
+  min-width: 0;
+  padding-block-end: calc(5.25rem + env(safe-area-inset-bottom));
+}
+
+.app-content {
+  width: min(100%, 62rem);
+  margin-inline: auto;
+  padding: 1.25rem max(1rem, env(safe-area-inset-right)) 2rem max(1rem, env(safe-area-inset-left));
+}
+
+.desktop-sidebar {
+  display: none;
+}
+
+@media (min-width: 48rem) {
+  .site-shell {
+    padding-inline: 2rem;
+  }
+
+  .module-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-layout {
+    display: grid;
+    grid-template-columns: 15.5rem minmax(0, 1fr);
+  }
+
+  .desktop-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    height: 100dvh;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 1.5rem;
+    border-inline-end: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .app-main {
+    padding-block-end: 0;
+  }
+
+  .app-content {
+    padding: 2rem;
+  }
+}

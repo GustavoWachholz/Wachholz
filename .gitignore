@@ -1,0 +1,16 @@
+# Credenciais e configurações locais
+.env
+.env.*
+*.pem
+*.key
+
+# Saídas locais
+coverage/
+_site/
+node_modules/
+
+# Editores e sistema operacional
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
