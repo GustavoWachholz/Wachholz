@@ -603,7 +603,7 @@ Exemplo:
 1.234,56
 ```
 
-Antes de enviar ao banco, normalizar para valor decimal compatível com PostgreSQL.
+No JavaScript, converter a entrada para centavos inteiros e executar validações e cálculos sem representar dinheiro como `float`. Somente na fronteira do Supabase os centavos devem ser serializados como texto decimal compatível com o tipo `numeric(14,2)` do PostgreSQL.
 
 ---
 
@@ -881,6 +881,8 @@ transaction_date < primeiro_dia_mes_seguinte
 AND
 household_id = household_atual
 ```
+
+O limite do mês seguinte deve ser exclusivo, evitando cálculos sobre a quantidade de dias do mês e impedindo que lançamentos do período seguinte entrem no resultado.
 
 ## Lista de compras
 

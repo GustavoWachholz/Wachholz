@@ -165,6 +165,117 @@
   }
 }
 
+.finance-foundation__header {
+  margin-block-end: 1.25rem;
+}
+
+.finance-foundation__header h1 {
+  margin-block-end: 0.85rem;
+  font-size: clamp(2.25rem, 11vw, 4rem);
+  letter-spacing: -0.06em;
+}
+
+.finance-foundation__header > p:last-child {
+  max-width: 42rem;
+  margin-block-end: 0;
+  color: var(--color-muted);
+}
+
+.finance-period {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 1rem;
+  padding: 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.finance-period time {
+  min-width: 0;
+  text-align: center;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.finance-period__button {
+  width: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  font-size: 1.6rem;
+}
+
+.finance-categories-panel {
+  display: grid;
+  gap: 1rem;
+  margin-block-end: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-large);
+  background: var(--color-finance);
+  box-shadow: var(--shadow-card);
+}
+
+.finance-categories-panel__header {
+  display: grid;
+  gap: 1rem;
+}
+
+.finance-categories-panel__header h2 {
+  margin: 0;
+}
+
+.finance-type-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.finance-type-selector button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.65rem;
+  border: 1px solid rgb(23 63 53 / 22%);
+  border-radius: 0.8rem;
+  color: var(--color-primary);
+  background: rgb(255 255 255 / 58%);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.finance-type-selector button[aria-pressed="true"] {
+  color: #ffffff;
+  background: var(--color-primary);
+}
+
+.finance-categories {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.finance-categories li {
+  min-height: 44px;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 64%);
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 40rem) {
+  .finance-categories-panel__header {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, auto);
+    align-items: center;
+  }
+}
+
 .shopping-lists__header,
 .shopping-list-detail__header {
   margin-block-end: 1.5rem;

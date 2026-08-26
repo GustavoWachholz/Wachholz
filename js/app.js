@@ -7,6 +7,8 @@ import { createHouseholdService } from './household/household-service.js';
 import { renderHouseholdView } from './household/household-view.js';
 import { validatePublicConfig } from './lib/public-config.js';
 import { getSupabaseClient } from './lib/supabase-client.js';
+import { createFinanceController } from './modules/finance/finance-context.js';
+import { createFinancialCategoryService } from './modules/finance/services/financial-category-service.js';
 import { getDocumentTitle, resolveProtectedRoute } from './router/app-routes.js';
 import { createHashRouter } from './router/hash-router.js';
 import { renderAppShell } from './shell/app-shell-view.js';
@@ -60,6 +62,7 @@ async function bootstrap(documentRoot) {
     const client = await getSupabaseClient();
     const authService = createAuthService(client);
     const householdService = createHouseholdService(client);
+    const financialCategoryService = createFinancialCategoryService(client);
     const shoppingListService = createShoppingListService(client);
     const shoppingItemService = createShoppingItemService(client);
     const shoppingItemsRealtime = createShoppingItemsRealtime(client);
@@ -67,6 +70,7 @@ async function bootstrap(documentRoot) {
     let authenticatedUser = null;
     let authState = { status: 'loading', user: null, error: null };
     let householdState = { status: 'idle', household: null, error: null };
+    let financeState = { status: 'idle', period: null, categoryType: 'expense', categories: [], error: null };
     let shoppingState = { status: 'idle', lists: [], error: null };
     let shoppingItemsState = { status: 'idle', listId: null, items: [], error: null };
     let currentHash = window.location.hash;
@@ -143,12 +147,21 @@ async function bootstrap(documentRoot) {
           error: householdState.error,
           sessionError: authState.error,
           dashboardState: { status: 'empty' },
+          financeState,
           shoppingState,
           shoppingItemsState,
         },
         {
           onLogout: requestLogout,
           onRetry: () => householdController.load(authenticatedUser),
+          onFinancePreviousMonth: () => financeController.shiftMonth(-1),
+          onFinanceNextMonth: () => financeController.shiftMonth(1),
+          onFinanceCategoryTypeChange: (type) => financeController.selectCategoryType(type),
+          onFinanceRetry: () => financeController.load({
+            householdId: householdState.householdId,
+            period: financeState.period,
+            type: financeState.categoryType,
+          }),
           onShoppingCreate: (name) => shoppingController.create({
             householdId: householdState.householdId,
             userId: authenticatedUser?.id,
@@ -183,6 +196,14 @@ async function bootstrap(documentRoot) {
 
       const isShoppingRoute = route?.id === 'shopping'
         || route?.navigationId === 'shopping';
+
+      if (
+        routeState.status === 'ready'
+        && route?.id === 'finance'
+        && financeState.status === 'idle'
+      ) {
+        financeController.load({ householdId: householdState.householdId });
+      }
 
       if (
         routeState.status === 'ready'
@@ -238,6 +259,17 @@ async function bootstrap(documentRoot) {
       },
     });
 
+    const financeController = createFinanceController({
+      categoryService: financialCategoryService,
+      onStateChange: (state) => {
+        const finishedLoading = financeState.status === 'loading'
+          && (state.status === 'ready' || state.status === 'error');
+        financeState = state;
+        renderAuthenticatedSurface({ focusContent: finishedLoading });
+      },
+    });
+    financeState = financeController.getState();
+
     const shoppingController = createShoppingListsController({
       listService: shoppingListService,
       onStateChange: (state) => {
@@ -287,6 +319,7 @@ async function bootstrap(documentRoot) {
 
         if (userChanged) {
           householdController.load(authenticatedUser);
+          financeController.clear();
           shoppingItemsController.clear();
           shoppingController.clear();
         } else if (householdController.getState().status === 'idle') {
@@ -294,6 +327,7 @@ async function bootstrap(documentRoot) {
         }
       } else {
         authenticatedUser = null;
+        financeController.clear();
         shoppingItemsController.clear();
         shoppingController.clear();
         householdController.clear();

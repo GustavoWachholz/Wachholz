@@ -283,6 +283,8 @@ Critério de aceitação: dois dispositivos convergem para o mesmo estado sem re
 
 Objetivo: preparar regras e consultas antes do CRUD.
 
+Estado: implementação local concluída, com seletor mensal mobile first, navegação segura entre anos, intervalo semiaberto para consultas, categorias filtradas por household e tipo, datas sem deslocamento de fuso e valores representados em centavos inteiros. A validação integrada das categorias depende do Supabase configurado.
+
 - carregar categorias por tipo
 - selecionar e navegar entre meses
 - montar o intervalo de datas da consulta
@@ -392,9 +394,13 @@ index.html
 │       │   ├── dashboard-summary.js
 │       │   └── dashboard-view.js
 │       ├── finance/
-│       │   ├── pages/
+│       │   ├── finance-context.js
+│       │   ├── finance-view.js
 │       │   ├── services/
+│       │   │   └── financial-category-service.js
 │       │   └── utils/
+│       │       ├── finance-money.js
+│       │       └── finance-period.js
 │       └── shopping/
 │           ├── shopping-item-service.js
 │           ├── shopping-items-context.js
@@ -433,6 +439,12 @@ index.html
 │       ├── dashboard-summary.test.js
 │       ├── dashboard-view.test.js
 │       ├── feedback.test.js
+│       ├── finance-context.test.js
+│       ├── finance-mobile.test.js
+│       ├── finance-money.test.js
+│       ├── finance-period.test.js
+│       ├── finance-view.test.js
+│       ├── financial-category-service.test.js
 │       ├── hash-router.test.js
 │       ├── mobile-shell.test.js
 │       ├── public-config.test.js

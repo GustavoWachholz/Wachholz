@@ -1,5 +1,6 @@
 import { APP_ROUTES } from '../router/app-routes.js';
 import { getDashboardMarkup } from '../modules/dashboard/dashboard-view.js';
+import { bindFinanceView, getFinanceMarkup } from '../modules/finance/finance-view.js';
 import {
   bindShoppingListsView,
   getShoppingListDetailMarkup,
@@ -39,21 +40,22 @@ function navigationMarkup(activeRouteId, className, label) {
 
 function routeContentMarkup(
   route,
-  { household, user, dashboardState, shoppingState, shoppingItemsState, routeState },
+  {
+    household,
+    user,
+    dashboardState,
+    financeState,
+    shoppingState,
+    shoppingItemsState,
+    routeState,
+  },
 ) {
   const householdName = escapeHtml(household?.name ?? 'Nossa casa');
   const email = escapeHtml(user?.email ?? 'Usuário autenticado');
 
   switch (route?.id) {
     case 'finance':
-      return `
-        <section class="route-panel" aria-labelledby="route-heading">
-          <p class="eyebrow">Organização mensal</p>
-          <h1 id="route-heading">Financeiro</h1>
-          <p>O espaço de receitas, despesas e saldo de ${householdName} está pronto para receber o módulo financeiro.</p>
-          <div class="route-placeholder" role="status">Funcionalidades financeiras entram nas próximas fases.</div>
-        </section>
-      `;
+      return getFinanceMarkup(financeState);
     case 'shopping':
       return getShoppingListsMarkup(shoppingState);
     case 'shopping-list':
@@ -174,6 +176,10 @@ export function renderAppShell(
   {
     onLogout,
     onRetry,
+    onFinancePreviousMonth = () => {},
+    onFinanceNextMonth = () => {},
+    onFinanceCategoryTypeChange = () => {},
+    onFinanceRetry = () => {},
     onShoppingCreate = () => {},
     onShoppingRetry = () => {},
     onShoppingItemCreate = () => {},
@@ -193,6 +199,14 @@ export function renderAppShell(
   });
   if (state.routeState?.status === 'error') {
     root.querySelector('[data-feedback-action]')?.addEventListener('click', onRetry);
+  }
+  if (state.routeState?.route?.id === 'finance') {
+    bindFinanceView(root, {
+      onPreviousMonth: onFinancePreviousMonth,
+      onNextMonth: onFinanceNextMonth,
+      onCategoryTypeChange: onFinanceCategoryTypeChange,
+      onRetry: onFinanceRetry,
+    });
   }
   if (state.routeState?.route?.navigationId === 'shopping'
     || state.routeState?.route?.id === 'shopping') {

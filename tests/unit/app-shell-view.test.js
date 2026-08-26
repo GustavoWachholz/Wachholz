@@ -53,6 +53,21 @@ describe('getAppShellMarkup', () => {
     assert.match(markup, /1 item pendente/);
   });
 
+  it('renderiza a fundação financeira na rota correspondente', () => {
+    const markup = getAppShellMarkup(createState('#/financeiro', {
+      financeState: {
+        status: 'ready',
+        period: { year: 2026, month: 8 },
+        categoryType: 'expense',
+        categories: [],
+      },
+    }));
+
+    assert.match(markup, /<h1 id="route-heading">Financeiro<\/h1>/);
+    assert.match(markup, /datetime="2026-08"/);
+    assert.match(markup, /data-finance-category-type/);
+  });
+
   it('escapa dados vindos da conta e da household', () => {
     const markup = getAppShellMarkup(createState('#/configuracoes', {
       household: { name: '<img src=x onerror=alert(1)>' },
