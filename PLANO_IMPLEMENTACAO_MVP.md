@@ -340,7 +340,7 @@ Objetivo: validar o MVP completo em condições reais de uso.
 - executar cenários de autenticação, RLS, compras, Realtime e financeiro
 - revisar mensagens de erro e ausência de segredos
 - executar a suíte completa novamente no workflow
-- criar o commit final e enviá-lo para um novo repositório privado do GitHub, usando o nome válido acordado com o responsável pelo projeto
+- criar o commit final e enviá-lo para o repositório público `Wachholz` no GitHub
 - publicar os arquivos estáticos no GitHub Pages
 - repetir os testes essenciais no ambiente publicado
 
@@ -456,7 +456,7 @@ index.html
 
 Cada commit funcional deve incluir seus testes unitários. Não deixar os testes para um commit ou fase posterior.
 
-Regra obrigatória de acompanhamento: após concluir cada fase e aprovar a suíte completa com `node --test`, criar um novo commit diretamente na branch `main` e enviá-lo ao repositório privado `Wachholz` no GitHub. Nenhuma fase é considerada encerrada antes desse commit e push, permitindo acompanhar o progresso pelo celular.
+Regra obrigatória de acompanhamento: após concluir cada fase e aprovar a suíte completa com `node --test`, criar um novo commit diretamente na branch `main` e enviá-lo ao repositório público `Wachholz` no GitHub. Nenhuma fase é considerada encerrada antes desse commit e push, permitindo acompanhar o progresso e a publicação do GitHub Pages pelo celular.
 
 Sugestão de sequência alinhada às fases:
 
