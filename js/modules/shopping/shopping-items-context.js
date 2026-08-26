@@ -1,4 +1,5 @@
 import { sortShoppingItems } from './shopping-item-service.js';
+import { reconcileShoppingItems } from './shopping-items-realtime.js';
 
 function createState(
   status,
@@ -12,6 +13,7 @@ function createState(
     editingItemId = null,
     pendingItemId = null,
     operationError = null,
+    realtimeError = null,
   } = {},
 ) {
   return Object.freeze({
@@ -25,10 +27,15 @@ function createState(
     editingItemId,
     pendingItemId,
     operationError,
+    realtimeError,
   });
 }
 
-export function createShoppingItemsController({ itemService, onStateChange = () => {} }) {
+export function createShoppingItemsController({
+  itemService,
+  realtimeService = null,
+  onStateChange = () => {},
+}) {
   if (
     !itemService
     || typeof itemService.listByList !== 'function'
@@ -40,15 +47,91 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
     throw new TypeError('O serviço de itens de compras é obrigatório.');
   }
 
+  if (realtimeService && typeof realtimeService.subscribe !== 'function') {
+    throw new TypeError('O serviço Realtime dos itens de compras é inválido.');
+  }
+
   let state = createState('idle');
   let requestVersion = 0;
+  let realtimeVersion = 0;
+  let unsubscribeRealtime = null;
 
   function emit(nextState) {
     state = nextState;
     onStateChange(state);
   }
 
+  function readyState(overrides = {}) {
+    return createState('ready', { ...state, ...overrides });
+  }
+
+  function stopRealtime() {
+    realtimeVersion += 1;
+    const unsubscribe = unsubscribeRealtime;
+    unsubscribeRealtime = null;
+
+    if (unsubscribe) {
+      try {
+        Promise.resolve(unsubscribe()).catch(() => {});
+      } catch {
+        // O canal já está sendo descartado; a próxima tela não deve ficar presa a ele.
+      }
+    }
+  }
+
+  function startRealtime(input) {
+    if (!realtimeService) {
+      return;
+    }
+
+    const currentRealtime = ++realtimeVersion;
+
+    const reportRealtimeError = (realtimeError) => {
+      if (
+        currentRealtime === realtimeVersion
+        && state.status === 'ready'
+        && state.listId === input.listId
+      ) {
+        emit(readyState({ realtimeError }));
+      }
+    };
+
+    try {
+      unsubscribeRealtime = realtimeService.subscribe({
+        householdId: input.householdId,
+        listId: input.listId,
+        onEvent: (event) => {
+          if (
+            currentRealtime !== realtimeVersion
+            || state.status !== 'ready'
+            || state.listId !== input.listId
+          ) {
+            return;
+          }
+
+          try {
+            const items = reconcileShoppingItems(state.items, event, input);
+            const itemIds = new Set(items.map((item) => item.id));
+            emit(readyState({
+              items,
+              editingItemId: itemIds.has(state.editingItemId) ? state.editingItemId : null,
+              realtimeError: null,
+            }));
+          } catch {
+            reportRealtimeError(new Error(
+              'Uma atualização automática inválida foi descartada com segurança.',
+            ));
+          }
+        },
+        onError: reportRealtimeError,
+      });
+    } catch (error) {
+      reportRealtimeError(error);
+    }
+  }
+
   async function load(input) {
+    stopRealtime();
     const currentRequest = ++requestVersion;
     emit(createState('loading', { listId: input?.listId ?? null }));
 
@@ -57,6 +140,7 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
 
       if (currentRequest === requestVersion) {
         emit(createState('ready', { listId: input.listId, items }));
+        startRealtime(input);
       }
     } catch (error) {
       if (currentRequest === requestVersion) {
@@ -81,28 +165,31 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
     }
 
     const currentRequest = ++requestVersion;
-    const currentItems = state.items;
-    emit(createState('ready', {
-      listId: state.listId,
-      items: currentItems,
+    emit(readyState({
+      formError: null,
       isSubmitting: true,
+      notice: null,
+      operationError: null,
     }));
 
     try {
       const createdItem = await itemService.create(input);
 
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: sortShoppingItems([...currentItems, createdItem]),
+        emit(readyState({
+          items: sortShoppingItems([
+            ...state.items.filter((item) => item.id !== createdItem.id),
+            createdItem,
+          ]),
+          formError: null,
+          isSubmitting: false,
           notice: 'Item adicionado.',
         }));
       }
     } catch (formError) {
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: currentItems,
+        emit(readyState({
+          isSubmitting: false,
           formError,
         }));
       }
@@ -121,10 +208,11 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
       return state;
     }
 
-    emit(createState('ready', {
-      listId: state.listId,
-      items: state.items,
+    emit(readyState({
       editingItemId: itemId,
+      formError: null,
+      notice: null,
+      operationError: null,
     }));
     return state;
   }
@@ -134,10 +222,7 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
       return state;
     }
 
-    emit(createState('ready', {
-      listId: state.listId,
-      items: state.items,
-    }));
+    emit(readyState({ editingItemId: null, formError: null }));
     return state;
   }
 
@@ -155,12 +240,12 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
     }
 
     const currentRequest = ++requestVersion;
-    const currentItems = state.items;
     const itemId = input.itemId;
-    emit(createState('ready', {
-      listId: state.listId,
-      items: currentItems,
+    emit(readyState({
       editingItemId: itemId,
+      formError: null,
+      notice: null,
+      operationError: null,
       pendingItemId: itemId,
     }));
 
@@ -168,20 +253,21 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
       const updatedItem = await itemService.update(input);
 
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: sortShoppingItems(currentItems.map((item) => (
+        emit(readyState({
+          items: sortShoppingItems(state.items.map((item) => (
             item.id === updatedItem.id ? updatedItem : item
           ))),
+          editingItemId: null,
+          formError: null,
+          pendingItemId: null,
           notice: 'Item atualizado.',
         }));
       }
     } catch (formError) {
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: currentItems,
+        emit(readyState({
           editingItemId: itemId,
+          pendingItemId: null,
           formError,
         }));
       }
@@ -196,11 +282,11 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
     }
 
     const currentRequest = ++requestVersion;
-    const currentItems = state.items;
-    emit(createState('ready', {
-      listId: state.listId,
-      items: currentItems,
+    emit(readyState({
       editingItemId: state.editingItemId,
+      formError: null,
+      notice: null,
+      operationError: null,
       pendingItemId: input.itemId,
     }));
 
@@ -208,20 +294,20 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
       const updatedItem = await itemService.setChecked(input);
 
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: sortShoppingItems(currentItems.map((item) => (
+        emit(readyState({
+          items: sortShoppingItems(state.items.map((item) => (
             item.id === updatedItem.id ? updatedItem : item
           ))),
+          operationError: null,
+          pendingItemId: null,
           notice: updatedItem.isChecked ? 'Item marcado como comprado.' : 'Item voltou para pendentes.',
         }));
       }
     } catch (operationError) {
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: currentItems,
+        emit(readyState({
           editingItemId: state.editingItemId,
+          pendingItemId: null,
           operationError,
         }));
       }
@@ -236,11 +322,11 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
     }
 
     const currentRequest = ++requestVersion;
-    const currentItems = state.items;
-    emit(createState('ready', {
-      listId: state.listId,
-      items: currentItems,
+    emit(readyState({
       editingItemId: state.editingItemId,
+      formError: null,
+      notice: null,
+      operationError: null,
       pendingItemId: input.itemId,
     }));
 
@@ -248,18 +334,19 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
       const removedId = await itemService.remove(input);
 
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: currentItems.filter((item) => item.id !== removedId),
+        emit(readyState({
+          items: state.items.filter((item) => item.id !== removedId),
+          editingItemId: null,
+          operationError: null,
+          pendingItemId: null,
           notice: 'Item excluído.',
         }));
       }
     } catch (operationError) {
       if (currentRequest === requestVersion) {
-        emit(createState('ready', {
-          listId: state.listId,
-          items: currentItems,
+        emit(readyState({
           editingItemId: state.editingItemId,
+          pendingItemId: null,
           operationError,
         }));
       }
@@ -269,6 +356,7 @@ export function createShoppingItemsController({ itemService, onStateChange = () 
   }
 
   function clear() {
+    stopRealtime();
     requestVersion += 1;
     emit(createState('idle'));
   }

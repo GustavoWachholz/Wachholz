@@ -107,6 +107,18 @@ describe('getShoppingItemsMarkup', () => {
     assert.match(markup, /data-shopping-item-delete[^>]*disabled/);
   });
 
+  it('avisa sobre indisponibilidade Realtime sem bloquear o uso', () => {
+    const markup = getShoppingItemsMarkup({
+      status: 'ready',
+      items: [],
+      realtimeError: new Error('canal indisponível'),
+    });
+
+    assert.match(markup, /Sincronização automática indisponível/);
+    assert.match(markup, /role="status"/);
+    assert.match(markup, /data-shopping-item-form/);
+  });
+
   it('escapa todos os campos textuais recebidos do banco', () => {
     const markup = getShoppingItemsMarkup({
       status: 'ready',

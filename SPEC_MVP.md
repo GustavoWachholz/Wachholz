@@ -499,9 +499,13 @@ em `shopping_items`.
 
 Após evento relevante:
 
+- validar que o evento pertence à household e à lista abertas
 - atualizar estado local
 - evitar duplicidade
 - manter ordenação
+- aceitar que, com RLS, um evento `DELETE` contenha somente o identificador antigo
+
+A assinatura deve ser cancelada ao trocar de lista, sair da tela, encerrar a sessão ou fechar a página. Uma indisponibilidade temporária do canal deve ser informada sem bloquear o CRUD persistido.
 
 Objetivo:
 

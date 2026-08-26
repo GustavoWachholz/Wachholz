@@ -268,6 +268,8 @@ Critério de aceitação: CRUD completo funciona no celular e mantém a ordenaç
 
 Objetivo: sincronizar a lista entre dispositivos.
 
+Estado: implementação local concluída, com canais filtrados por lista, reconciliação segura e ordenada dos três tipos de evento, aviso não bloqueante em caso de falha e descarte da assinatura ao trocar de tela, lista, sessão ou página. A validação entre dois dispositivos depende da configuração do Supabase e da aplicação da migration `003_shopping_items_realtime.sql`.
+
 - assinar `INSERT`, `UPDATE` e `DELETE`
 - filtrar eventos pela lista ou household atual
 - deduplicar e ordenar o estado após eventos
@@ -396,6 +398,7 @@ index.html
 │       └── shopping/
 │           ├── shopping-item-service.js
 │           ├── shopping-items-context.js
+│           ├── shopping-items-realtime.js
 │           ├── shopping-items-view.js
 │           ├── shopping-list-service.js
 │           ├── shopping-lists-context.js
@@ -410,7 +413,8 @@ index.html
 │   ├── RLS_TEST_PLAN.md
 │   └── migrations/
 │       ├── 001_initial_schema.sql
-│       └── 002_household_rls.sql
+│       ├── 002_household_rls.sql
+│       └── 003_shopping_items_realtime.sql
 ├── tests/
 │   └── unit/
 │       ├── database-schema.test.js
@@ -438,10 +442,12 @@ index.html
 │       ├── shopping-item-service.test.js
 │       ├── shopping-items-context.test.js
 │       ├── shopping-items-mobile.test.js
+│       ├── shopping-items-realtime.test.js
 │       ├── shopping-items-view.test.js
 │       ├── shopping-lists-context.test.js
 │       ├── shopping-lists-view.test.js
 │       ├── shopping-mobile.test.js
+│       ├── shopping-realtime-migration.test.js
 │       ├── supabase-client.test.js
 │       └── supabase-result.test.js
 └── .github/

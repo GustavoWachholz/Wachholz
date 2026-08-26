@@ -183,6 +183,7 @@ export function getShoppingItemsMarkup(
 
   return `
     <div class="shopping-items-region" aria-live="polite">
+      ${state.realtimeError ? '<p class="form-message shopping-items__sync-warning" role="status">Sincronização automática indisponível. Você ainda pode usar a lista e tentar novamente ao reabrir esta tela.</p>' : ''}
       ${state.operationError ? `<p class="form-message form-message--error shopping-items__error" role="alert">${escapeHtml(state.operationError.message)}</p>` : ''}
       ${content}
       ${itemFormMarkup(state)}

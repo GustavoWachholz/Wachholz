@@ -14,6 +14,7 @@ import { createShoppingListService } from './modules/shopping/shopping-list-serv
 import { createShoppingListsController } from './modules/shopping/shopping-lists-context.js';
 import { createShoppingItemService } from './modules/shopping/shopping-item-service.js';
 import { createShoppingItemsController } from './modules/shopping/shopping-items-context.js';
+import { createShoppingItemsRealtime } from './modules/shopping/shopping-items-realtime.js';
 import { openConfirmationDialog } from './ui/confirmation.js';
 
 function renderConfigStatus(documentRoot, validation) {
@@ -61,6 +62,7 @@ async function bootstrap(documentRoot) {
     const householdService = createHouseholdService(client);
     const shoppingListService = createShoppingListService(client);
     const shoppingItemService = createShoppingItemService(client);
+    const shoppingItemsRealtime = createShoppingItemsRealtime(client);
     let sessionController;
     let authenticatedUser = null;
     let authState = { status: 'loading', user: null, error: null };
@@ -120,6 +122,16 @@ async function bootstrap(documentRoot) {
         sessionStatus: authState.status,
         householdStatus: householdState.status,
       });
+      const route = routeState.route;
+
+      if (
+        routeState.status === 'ready'
+        && route?.id !== 'shopping-list'
+        && shoppingItemsState.status !== 'idle'
+      ) {
+        shoppingItemsController.clear();
+        return;
+      }
 
       documentRoot.title = getDocumentTitle(routeState);
       renderAppShell(
@@ -169,7 +181,6 @@ async function bootstrap(documentRoot) {
         },
       );
 
-      const route = routeState.route;
       const isShoppingRoute = route?.id === 'shopping'
         || route?.navigationId === 'shopping';
 
@@ -184,6 +195,17 @@ async function bootstrap(documentRoot) {
       const selectedListId = routeState.params?.listId;
       const selectedListExists = shoppingState.status === 'ready'
         && shoppingState.lists.some((list) => list.id === selectedListId);
+
+      if (
+        routeState.status === 'ready'
+        && route?.id === 'shopping-list'
+        && shoppingState.status === 'ready'
+        && !selectedListExists
+        && shoppingItemsState.status !== 'idle'
+      ) {
+        shoppingItemsController.clear();
+        return;
+      }
 
       if (
         routeState.status === 'ready'
@@ -228,6 +250,7 @@ async function bootstrap(documentRoot) {
 
     const shoppingItemsController = createShoppingItemsController({
       itemService: shoppingItemService,
+      realtimeService: shoppingItemsRealtime,
       onStateChange: (state) => {
         const finishedLoading = shoppingItemsState.status === 'loading'
           && (state.status === 'ready' || state.status === 'error');
@@ -285,6 +308,7 @@ async function bootstrap(documentRoot) {
       'pagehide',
       () => {
         router.stop();
+        shoppingItemsController.clear();
         sessionController.stop();
       },
       { once: true },

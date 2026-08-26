@@ -424,6 +424,14 @@
   background: #fbe8e5;
 }
 
+.shopping-items__sync-warning {
+  padding: 0.8rem 1rem;
+  border: 1px solid #e8c56d;
+  border-radius: var(--radius-medium);
+  color: #6f4f08;
+  background: #fff4d6;
+}
+
 .shopping-item-form {
   position: sticky;
   z-index: 5;

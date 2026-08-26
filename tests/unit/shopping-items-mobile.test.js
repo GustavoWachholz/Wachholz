@@ -16,6 +16,7 @@ describe('itens de compras mobile first', () => {
 
     assert.match(css, /\.shopping-item__check\s*{[\s\S]*?width:\s*44px[\s\S]*?height:\s*44px/);
     assert.match(css, /\.shopping-item-form__details summary[\s\S]*?min-height:\s*44px/);
+    assert.match(css, /\.shopping-items__sync-warning\s*{[\s\S]*?padding:/);
     assert.match(css, /\.shopping-item__actions,[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(componentsCss, /\.secondary-button\s*{[\s\S]*?min-height:\s*44px/);
   });
@@ -24,12 +25,16 @@ describe('itens de compras mobile first', () => {
     const app = await readFile('js/app.js', 'utf8');
 
     assert.match(app, /createShoppingItemService\(client\)/);
+    assert.match(app, /createShoppingItemsRealtime\(client\)/);
     assert.match(app, /createShoppingItemsController/);
+    assert.match(app, /realtimeService:\s*shoppingItemsRealtime/);
     assert.match(app, /onShoppingItemCreate/);
     assert.match(app, /onShoppingItemUpdate/);
     assert.match(app, /onShoppingItemToggle/);
     assert.match(app, /requestShoppingItemDeletion/);
     assert.match(app, /openConfirmationDialog[\s\S]*?Excluir este item\?/);
+    assert.match(app, /route\?\.id !== 'shopping-list'[\s\S]*?shoppingItemsController\.clear\(\)/);
+    assert.match(app, /pagehide[\s\S]*?shoppingItemsController\.clear\(\)/);
     assert.doesNotMatch(app, /localStorage|sessionStorage/);
   });
 });
