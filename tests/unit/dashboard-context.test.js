@@ -16,7 +16,10 @@ describe('createDashboardController', () => {
         async getSummary(householdId) {
           assert.equal(householdId, 'household-1');
           return {
-            finance: { income: '100', expenses: '40', transactionCount: 2 },
+            finance: {
+              incomeCents: '10000', expenseCents: '4000',
+              balanceCents: '6000', transactionCount: 2,
+            },
             shopping: { pendingItems: 3, activeLists: 1 },
           };
         },
@@ -27,7 +30,7 @@ describe('createDashboardController', () => {
     await controller.load('household-1');
 
     assert.deepEqual(states.map(({ status }) => status), ['loading', 'ready']);
-    assert.equal(controller.getState().summary.finance.balance, 60);
+    assert.equal(controller.getState().summary.finance.balanceCents, 6000);
   });
 
   it('expõe erro do serviço em estado próprio', async () => {

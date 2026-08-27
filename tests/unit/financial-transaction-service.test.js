@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   createFinancialTransactionService,
+  filterFinancialTransactions,
   mapFinancialTransaction,
   sortFinancialTransactions,
   validateFinancialTransactionInput,
@@ -74,6 +75,23 @@ function createInsertClient(result) {
       calls.push(['from', table]);
       return {
         insert(payload) { calls.push(['insert', payload]); return this; },
+        select(columns) { calls.push(['select', columns]); return this; },
+        async single() { calls.push(['single']); return result; },
+      };
+    },
+  };
+}
+
+function createMutationClient(result) {
+  const calls = [];
+  return {
+    calls,
+    from(table) {
+      calls.push(['from', table]);
+      return {
+        update(payload) { calls.push(['update', payload]); return this; },
+        delete() { calls.push(['delete']); return this; },
+        eq(column, value) { calls.push(['eq', column, value]); return this; },
         select(columns) { calls.push(['select', columns]); return this; },
         async single() { calls.push(['single']); return result; },
       };
@@ -170,6 +188,29 @@ describe('mapFinancialTransaction e ordenação', () => {
       },
     })), /categoria.*inconsistente/i);
   });
+
+  it('combina filtros de tipo e categoria sem alterar a coleção original', () => {
+    const expense = mapFinancialTransaction(transactionRow());
+    const income = mapFinancialTransaction(transactionRow({
+      id: '99999999-9999-4999-8999-999999999997',
+      type: 'income',
+    }));
+    const transactions = [expense, income];
+
+    assert.deepEqual(
+      filterFinancialTransactions(transactions, { type: 'income' }),
+      [income],
+    );
+    assert.deepEqual(
+      filterFinancialTransactions(transactions, { type: 'expense', categoryId: CATEGORY_ID }),
+      [expense],
+    );
+    assert.equal(transactions.length, 2);
+    assert.throws(
+      () => filterFinancialTransactions(transactions, { categoryId: 'inválido' }),
+      /categoria/i,
+    );
+  });
 });
 
 describe('createFinancialTransactionService', () => {
@@ -256,6 +297,66 @@ describe('createFinancialTransactionService', () => {
       }),
       /não corresponde à solicitação/i,
     );
+  });
+
+  it('edita somente campos mutáveis no escopo atual e valida a resposta', async () => {
+    const client = createMutationClient({
+      data: transactionRow({
+        description: 'Supermercado mensal',
+        amount: '200.00',
+        notes: null,
+        updated_at: '2026-08-27T12:00:00Z',
+      }),
+      error: null,
+    });
+    const updated = await createFinancialTransactionService(client).update({
+      householdId: HOUSEHOLD_ID,
+      transactionId: TRANSACTION_ID,
+      period: PERIOD,
+      categories: [CATEGORY],
+      type: 'expense',
+      description: ' Supermercado mensal ',
+      amount: '200,00',
+      transactionDate: '2026-08-10',
+      categoryId: CATEGORY_ID,
+      notes: '',
+      createdBy: 'valor manipulado',
+    });
+
+    assert.equal(updated.amountCents, 20000);
+    assert.deepEqual(client.calls.slice(0, 4), [
+      ['from', 'financial_transactions'],
+      ['update', {
+        category_id: CATEGORY_ID,
+        type: 'expense',
+        description: 'Supermercado mensal',
+        amount: '200.00',
+        transaction_date: '2026-08-10',
+        notes: null,
+      }],
+      ['eq', 'household_id', HOUSEHOLD_ID],
+      ['eq', 'id', TRANSACTION_ID],
+    ]);
+    assert.equal(Object.hasOwn(client.calls[1][1], 'created_by'), false);
+    assert.equal(Object.hasOwn(client.calls[1][1], 'household_id'), false);
+  });
+
+  it('exclui pelo ID e household e valida o identificador devolvido', async () => {
+    const client = createMutationClient({ data: { id: TRANSACTION_ID }, error: null });
+    const removedId = await createFinancialTransactionService(client).remove({
+      householdId: HOUSEHOLD_ID,
+      transactionId: TRANSACTION_ID,
+    });
+
+    assert.equal(removedId, TRANSACTION_ID);
+    assert.deepEqual(client.calls, [
+      ['from', 'financial_transactions'],
+      ['delete'],
+      ['eq', 'household_id', HOUSEHOLD_ID],
+      ['eq', 'id', TRANSACTION_ID],
+      ['select', 'id'],
+      ['single'],
+    ]);
   });
 
   it('normaliza falha do banco e valida o cliente', async () => {

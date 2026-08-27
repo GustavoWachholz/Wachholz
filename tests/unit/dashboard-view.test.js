@@ -21,7 +21,12 @@ describe('getDashboardMarkup', () => {
       dashboardState: {
         status: 'ready',
         summary: {
-          finance: { income: 2000, expenses: 750, transactionCount: 3 },
+          finance: {
+            incomeCents: 200000,
+            expenseCents: 75000,
+            balanceCents: 125000,
+            transactionCount: 3,
+          },
           shopping: { pendingItems: 8, activeLists: 2 },
         },
       },

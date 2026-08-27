@@ -210,6 +210,25 @@ export function sortFinancialTransactions(transactions) {
   )));
 }
 
+export function filterFinancialTransactions(
+  transactions,
+  { type = 'all', categoryId = 'all' } = {},
+) {
+  if (!Array.isArray(transactions)) {
+    throw new TypeError('A coleção de lançamentos financeiros é inválida.');
+  }
+
+  const validType = type === 'all' ? 'all' : validateFinanceType(type);
+  const validCategoryId = categoryId === 'all'
+    ? 'all'
+    : validateFinanceUuid(categoryId, 'identificador da categoria');
+
+  return Object.freeze(transactions.filter((transaction) => (
+    (validType === 'all' || transaction.type === validType)
+    && (validCategoryId === 'all' || transaction.categoryId === validCategoryId)
+  )));
+}
+
 export function createFinancialTransactionService(client) {
   if (!client || typeof client.from !== 'function') {
     throw new TypeError('O cliente de banco do Supabase é obrigatório.');
@@ -291,5 +310,76 @@ export function createFinancialTransactionService(client) {
     return transaction;
   }
 
-  return Object.freeze({ create, listByPeriod });
+  async function update({ householdId, transactionId, period, categories, ...input }) {
+    const validHouseholdId = validateFinanceUuid(householdId, 'identificador da household');
+    const validTransactionId = validateFinanceUuid(
+      transactionId,
+      'identificador do lançamento',
+    );
+    const normalized = validateFinancialTransactionInput(input, { categories, period });
+    const payload = {
+      category_id: normalized.categoryId,
+      type: normalized.type,
+      description: normalized.description,
+      amount: normalized.amount,
+      transaction_date: normalized.transactionDate,
+      notes: normalized.notes,
+    };
+    const result = await client
+      .from('financial_transactions')
+      .update(payload)
+      .eq('household_id', validHouseholdId)
+      .eq('id', validTransactionId)
+      .select(TRANSACTION_COLUMNS)
+      .single();
+    const row = unwrapSupabaseResult(result, { operation: 'editar o lançamento financeiro' });
+    const transaction = mapFinancialTransaction(row);
+
+    if (
+      transaction.id !== validTransactionId
+      || transaction.householdId !== validHouseholdId
+      || transaction.categoryId !== normalized.categoryId
+      || transaction.type !== normalized.type
+      || transaction.description !== normalized.description
+      || transaction.amountCents !== normalized.amountCents
+      || transaction.transactionDate !== normalized.transactionDate
+      || transaction.notes !== normalized.notes
+    ) {
+      throw new FinancialTransactionError(
+        'INVALID_RESPONSE',
+        'O lançamento atualizado não corresponde à solicitação.',
+      );
+    }
+
+    validateDateInPeriod(transaction.transactionDate, period);
+    return transaction;
+  }
+
+  async function remove({ householdId, transactionId }) {
+    const validHouseholdId = validateFinanceUuid(householdId, 'identificador da household');
+    const validTransactionId = validateFinanceUuid(
+      transactionId,
+      'identificador do lançamento',
+    );
+    const result = await client
+      .from('financial_transactions')
+      .delete()
+      .eq('household_id', validHouseholdId)
+      .eq('id', validTransactionId)
+      .select('id')
+      .single();
+    const row = unwrapSupabaseResult(result, { operation: 'excluir o lançamento financeiro' });
+    const removedId = validateFinanceUuid(row?.id, 'identificador do lançamento excluído');
+
+    if (removedId !== validTransactionId) {
+      throw new FinancialTransactionError(
+        'INVALID_RESPONSE',
+        'O lançamento excluído não corresponde à solicitação.',
+      );
+    }
+
+    return removedId;
+  }
+
+  return Object.freeze({ create, listByPeriod, remove, update });
 }

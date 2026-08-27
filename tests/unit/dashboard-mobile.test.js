@@ -31,4 +31,13 @@ describe('dashboard mobile first', () => {
     assert.match(app, /renderAuthenticatedSurface\(\{ focusContent: true \}\)/);
     assert.match(app, /querySelector\('\#route-content'\)\?\.focus\(\)/);
   });
+
+  it('integra o resumo real ao ciclo autenticado e recarrega ao abrir o dashboard', async () => {
+    const app = await readFile('js/app.js', 'utf8');
+
+    assert.match(app, /createDashboardSummaryService\(\{[\s\S]*?transactionService:[\s\S]*?shoppingListService/);
+    assert.match(app, /createDashboardController\(\{[\s\S]*?summaryService:\s*dashboardSummaryService/);
+    assert.match(app, /route\?\.id === 'dashboard'[\s\S]*?dashboardController\.load/);
+    assert.match(app, /resolution\.route\?\.id === 'dashboard'[\s\S]*?dashboardController\.clear/);
+  });
 });

@@ -15,6 +15,13 @@ describe('fundação estática', () => {
     assert.doesNotMatch(html, /https?:\/\//);
   });
 
+  it('apresenta os módulos concluídos como disponíveis', async () => {
+    const html = await readFile('index.html', 'utf8');
+
+    assert.equal(html.match(/Disponível no app/g)?.length, 2);
+    assert.doesNotMatch(html, /Em preparação/);
+  });
+
   it('protege a largura mínima suportada contra rolagem horizontal', async () => {
     const css = await readFile('css/base.css', 'utf8');
 

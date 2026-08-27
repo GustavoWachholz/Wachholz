@@ -8,6 +8,16 @@ const CATEGORY = Object.freeze({
   name: 'Alimentação',
   type: 'expense',
 });
+const TRANSACTION = Object.freeze({
+  id: '99999999-9999-4999-8999-999999999999',
+  type: 'expense',
+  description: 'Mercado',
+  categoryId: CATEGORY.id,
+  categoryName: CATEGORY.name,
+  amountCents: 18349,
+  transactionDate: '2026-08-10',
+  notes: 'Semana',
+});
 
 function state(overrides = {}) {
   return {
@@ -102,6 +112,53 @@ describe('getFinanceMarkup', () => {
     assert.match(markup, /role="status">Lançamento cadastrado/);
     assert.doesNotMatch(markup, /<script>|<b>Valor inválido/);
   });
+
+  it('renderiza filtros combináveis e ações de manutenção com alvos explícitos', () => {
+    const markup = getFinanceMarkup(state({
+      transactions: [TRANSACTION],
+      visibleTransactions: [TRANSACTION],
+      filterType: 'expense',
+      filterCategoryId: CATEGORY.id,
+    }));
+
+    assert.match(markup, /data-finance-filter-type/);
+    assert.match(markup, /value="expense" selected>Despesa/);
+    assert.match(markup, /data-finance-filter-category/);
+    assert.match(markup, new RegExp(`value="${CATEGORY.id}" selected`));
+    assert.match(markup, new RegExp(`data-financial-transaction-edit="${TRANSACTION.id}"`));
+    assert.match(markup, new RegExp(`data-financial-transaction-delete="${TRANSACTION.id}"`));
+  });
+
+  it('renderiza edição completa preenchida e erro contextual escapado', () => {
+    const markup = getFinanceMarkup(state({
+      transactions: [TRANSACTION],
+      visibleTransactions: [TRANSACTION],
+      editingTransactionId: TRANSACTION.id,
+      editCategories: [CATEGORY],
+      formError: new Error('<b>Não salvou</b>'),
+    }));
+
+    assert.match(markup, new RegExp(`data-financial-transaction-edit="${TRANSACTION.id}"`));
+    assert.match(markup, /name="description"[^>]*value="Mercado"/);
+    assert.match(markup, /name="amount"[^>]*value="183,49"/);
+    assert.match(markup, /name="type"/);
+    assert.match(markup, /name="categoryId"/);
+    assert.match(markup, /name="transactionDate"/);
+    assert.match(markup, /name="notes"/);
+    assert.match(markup, /data-financial-edit-cancel/);
+    assert.match(markup, /&lt;b&gt;Não salvou&lt;\/b&gt;/);
+  });
+
+  it('distingue mês vazio de filtros sem resultados', () => {
+    const markup = getFinanceMarkup(state({
+      transactions: [TRANSACTION],
+      visibleTransactions: [],
+      filterType: 'income',
+    }));
+
+    assert.match(markup, /Nenhum lançamento corresponde aos filtros/);
+    assert.doesNotMatch(markup, /Nenhum lançamento neste mês/);
+  });
 });
 
 describe('bindFinanceView', () => {
@@ -169,6 +226,115 @@ describe('bindFinanceView', () => {
           categoryId: CATEGORY.id, notes: 'Semana',
         },
       ]);
+    } finally {
+      globalThis.FormData = OriginalFormData;
+    }
+  });
+
+  it('conecta filtros, edição, cancelamento, atualização e exclusão', () => {
+    function element(dataset = {}, tagName = 'BUTTON') {
+      return {
+        dataset,
+        tagName,
+        addEventListener(type, listener) {
+          this.listeners ??= {};
+          this.listeners[type] = listener;
+        },
+      };
+    }
+
+    const filterType = element();
+    filterType.value = 'expense';
+    const filterCategory = element();
+    filterCategory.value = CATEGORY.id;
+    const editButton = element({ financialTransactionEdit: TRANSACTION.id });
+    const deleteButton = element({ financialTransactionDelete: TRANSACTION.id });
+    const cancelButton = element();
+    const editType = element();
+    editType.value = 'expense';
+    const options = [
+      { dataset: {}, disabled: false, hidden: false },
+      { dataset: { categoryType: 'expense' }, disabled: false, hidden: false },
+      { dataset: { categoryType: 'income' }, disabled: false, hidden: false },
+    ];
+    const editCategory = element();
+    editCategory.options = options;
+    editCategory.selectedIndex = 1;
+    editCategory.value = CATEGORY.id;
+    const editForm = element({ financialTransactionEdit: TRANSACTION.id }, 'FORM');
+    editForm.querySelector = (selector) => new Map([
+      ['[data-financial-edit-type]', editType],
+      ['[data-financial-edit-category]', editCategory],
+      ['[data-financial-edit-cancel]', cancelButton],
+    ]).get(selector) ?? null;
+
+    const root = {
+      querySelector(selector) {
+        return new Map([
+          ['[data-finance-filter-type]', filterType],
+          ['[data-finance-filter-category]', filterCategory],
+        ]).get(selector) ?? null;
+      },
+      querySelectorAll(selector) {
+        return new Map([
+          ['[data-finance-category-type]', []],
+          ['button[data-financial-transaction-edit]', [editButton]],
+          ['[data-financial-transaction-delete]', [deleteButton]],
+          ['[data-financial-transaction-edit]', [editForm]],
+        ]).get(selector) ?? [];
+      },
+    };
+    const values = new Map([
+      ['type', 'expense'], ['description', 'Mercado mensal'], ['amount', '200,00'],
+      ['transactionDate', '2026-08-10'], ['categoryId', CATEGORY.id], ['notes', 'Ajustado'],
+    ]);
+    const OriginalFormData = globalThis.FormData;
+    globalThis.FormData = class {
+      constructor(receivedForm) { assert.equal(receivedForm, editForm); }
+      get(name) { return values.get(name); }
+    };
+    const calls = [];
+
+    try {
+      bindFinanceView(root, {
+        onFilterTypeChange: (type) => calls.push(['filterType', type]),
+        onFilterCategoryChange: (categoryId) => calls.push(['filterCategory', categoryId]),
+        onEdit: (id) => calls.push(['edit', id]),
+        onEditCancel: () => calls.push(['cancel']),
+        onUpdate: (input) => calls.push(['update', input]),
+        onDelete: (id) => calls.push(['delete', id]),
+      });
+      filterType.listeners.change({ currentTarget: filterType });
+      filterCategory.listeners.change({ currentTarget: filterCategory });
+      editButton.listeners.click();
+      deleteButton.listeners.click();
+      cancelButton.listeners.click();
+      let prevented = false;
+      editForm.listeners.submit({ preventDefault: () => { prevented = true; } });
+
+      assert.equal(prevented, true);
+      assert.deepEqual(calls, [
+        ['filterType', 'expense'],
+        ['filterCategory', CATEGORY.id],
+        ['edit', TRANSACTION.id],
+        ['delete', TRANSACTION.id],
+        ['cancel'],
+        ['update', {
+          transactionId: TRANSACTION.id,
+          type: 'expense',
+          description: 'Mercado mensal',
+          amount: '200,00',
+          transactionDate: '2026-08-10',
+          categoryId: CATEGORY.id,
+          notes: 'Ajustado',
+        }],
+      ]);
+
+      editType.value = 'income';
+      editType.listeners.change();
+      assert.equal(options[1].disabled, true);
+      assert.equal(options[2].disabled, false);
+      assert.equal(editCategory.value, '');
     } finally {
       globalThis.FormData = OriginalFormData;
     }

@@ -86,6 +86,21 @@ describe('getAppShellMarkup', () => {
     assert.match(markup, /&lt;script&gt;ruim&lt;\/script&gt;@example\.com/);
   });
 
+  it('renderiza configurações com período e exportação financeira', () => {
+    const markup = getAppShellMarkup(createState('#/configuracoes', {
+      financeState: {
+        status: 'ready',
+        period: { year: 2026, month: 8 },
+        transactions: [{ id: '1' }],
+      },
+    }));
+
+    assert.match(markup, /Dados da conta/);
+    assert.match(markup, /Exportar financeiro/);
+    assert.match(markup, /datetime="2026-08"/);
+    assert.match(markup, /data-settings-export/);
+  });
+
   it('renderiza loading global acessível', () => {
     const state = createState('#/dashboard', {
       routeState: resolveProtectedRoute('#/dashboard', {

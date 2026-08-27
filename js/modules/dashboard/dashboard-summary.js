@@ -11,7 +11,7 @@ function toNonNegativeNumber(value, fieldName) {
 function toCount(value, fieldName) {
   const count = toNonNegativeNumber(value, fieldName);
 
-  if (!Number.isInteger(count)) {
+  if (!Number.isSafeInteger(count)) {
     throw new TypeError(`${fieldName} deve ser um número inteiro.`);
   }
 
@@ -21,9 +21,9 @@ function toCount(value, fieldName) {
 export function createEmptyDashboardSummary() {
   return Object.freeze({
     finance: Object.freeze({
-      income: 0,
-      expenses: 0,
-      balance: 0,
+      incomeCents: 0,
+      expenseCents: 0,
+      balanceCents: 0,
       transactionCount: 0,
     }),
     shopping: Object.freeze({
@@ -34,14 +34,22 @@ export function createEmptyDashboardSummary() {
 }
 
 export function normalizeDashboardSummary(value = {}) {
-  const income = toNonNegativeNumber(value.finance?.income ?? 0, 'Receitas');
-  const expenses = toNonNegativeNumber(value.finance?.expenses ?? 0, 'Despesas');
+  const incomeCents = toCount(value.finance?.incomeCents ?? 0, 'Receitas em centavos');
+  const expenseCents = toCount(value.finance?.expenseCents ?? 0, 'Despesas em centavos');
+  const receivedBalance = value.finance?.balanceCents;
+  const balanceCents = receivedBalance === undefined
+    ? incomeCents - expenseCents
+    : Number(receivedBalance);
+
+  if (!Number.isSafeInteger(balanceCents) || balanceCents !== incomeCents - expenseCents) {
+    throw new TypeError('O saldo financeiro do dashboard é inconsistente.');
+  }
 
   return Object.freeze({
     finance: Object.freeze({
-      income,
-      expenses,
-      balance: income - expenses,
+      incomeCents,
+      expenseCents,
+      balanceCents,
       transactionCount: toCount(
         value.finance?.transactionCount ?? 0,
         'Quantidade de lançamentos',
@@ -56,20 +64,9 @@ export function normalizeDashboardSummary(value = {}) {
 
 export function hasDashboardActivity(summary) {
   const normalizedSummary = normalizeDashboardSummary(summary);
-  return normalizedSummary.finance.income > 0
-    || normalizedSummary.finance.expenses > 0
+  return normalizedSummary.finance.incomeCents > 0
+    || normalizedSummary.finance.expenseCents > 0
     || normalizedSummary.finance.transactionCount > 0
     || normalizedSummary.shopping.pendingItems > 0
     || normalizedSummary.shopping.activeLists > 0;
-}
-
-export function formatCurrency(value, locale = 'pt-BR', currency = 'BRL') {
-  if (!Number.isFinite(value)) {
-    throw new TypeError('O valor monetário deve ser um número finito.');
-  }
-
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-  }).format(value);
 }

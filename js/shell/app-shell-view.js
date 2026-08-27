@@ -1,5 +1,6 @@
 import { APP_ROUTES } from '../router/app-routes.js';
 import { getDashboardMarkup } from '../modules/dashboard/dashboard-view.js';
+import { bindSettingsView, getSettingsMarkup } from '../modules/settings/settings-view.js';
 import { bindFinanceView, getFinanceMarkup } from '../modules/finance/finance-view.js';
 import {
   bindShoppingListsView,
@@ -51,7 +52,6 @@ function routeContentMarkup(
   },
 ) {
   const householdName = escapeHtml(household?.name ?? 'Nossa casa');
-  const email = escapeHtml(user?.email ?? 'Usuário autenticado');
 
   switch (route?.id) {
     case 'finance':
@@ -68,17 +68,7 @@ function routeContentMarkup(
         },
       );
     case 'settings':
-      return `
-        <section class="route-panel" aria-labelledby="route-heading">
-          <p class="eyebrow">Conta e casa</p>
-          <h1 id="route-heading">Configurações</h1>
-          <dl class="account-summary">
-            <div><dt>Household</dt><dd>${householdName}</dd></div>
-            <div><dt>Conta</dt><dd>${email}</dd></div>
-          </dl>
-          <button class="secondary-button" type="button" data-app-logout>Sair deste dispositivo</button>
-        </section>
-      `;
+      return getSettingsMarkup({ household, user, financeState });
     case 'dashboard':
     default:
       return getDashboardMarkup({
@@ -180,7 +170,18 @@ export function renderAppShell(
     onFinanceNextMonth = () => {},
     onFinanceCategoryTypeChange = () => {},
     onFinanceCreate = () => {},
+    onFinanceFilterTypeChange = () => {},
+    onFinanceFilterCategoryChange = () => {},
+    onFinanceEdit = () => {},
+    onFinanceEditCancel = () => {},
+    onFinanceUpdate = () => {},
+    onFinanceDelete = () => {},
     onFinanceRetry = () => {},
+    onDashboardRetry = () => {},
+    onSettingsPreviousMonth = () => {},
+    onSettingsNextMonth = () => {},
+    onSettingsExport = () => {},
+    onSettingsRetry = () => {},
     onShoppingCreate = () => {},
     onShoppingRetry = () => {},
     onShoppingItemCreate = () => {},
@@ -207,7 +208,25 @@ export function renderAppShell(
       onNextMonth: onFinanceNextMonth,
       onCategoryTypeChange: onFinanceCategoryTypeChange,
       onCreate: onFinanceCreate,
+      onFilterTypeChange: onFinanceFilterTypeChange,
+      onFilterCategoryChange: onFinanceFilterCategoryChange,
+      onEdit: onFinanceEdit,
+      onEditCancel: onFinanceEditCancel,
+      onUpdate: onFinanceUpdate,
+      onDelete: onFinanceDelete,
       onRetry: onFinanceRetry,
+    });
+  }
+  if (state.routeState?.route?.id === 'dashboard') {
+    root.querySelector('[data-feedback-action]')
+      ?.addEventListener('click', onDashboardRetry);
+  }
+  if (state.routeState?.route?.id === 'settings') {
+    bindSettingsView(root, {
+      onPreviousMonth: onSettingsPreviousMonth,
+      onNextMonth: onSettingsNextMonth,
+      onExport: onSettingsExport,
+      onRetry: onSettingsRetry,
     });
   }
   if (state.routeState?.route?.navigationId === 'shopping'

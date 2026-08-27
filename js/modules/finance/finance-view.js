@@ -80,6 +80,128 @@ function categoryOptionsMarkup(state) {
   `;
 }
 
+function moneyInputValue(cents) {
+  const absolute = Math.abs(cents);
+  const whole = Math.floor(absolute / 100);
+  const fraction = String(absolute % 100).padStart(2, '0');
+  return `${cents < 0 ? '-' : ''}${whole},${fraction}`;
+}
+
+function transactionFilterMarkup(state) {
+  const categories = [...new Map(
+    state.transactions
+      .filter((transaction) => (
+        state.filterType === 'all' || transaction.type === state.filterType
+      ))
+      .map((transaction) => [transaction.categoryId, transaction.categoryName]),
+  ).entries()].sort((left, right) => left[1].localeCompare(right[1], 'pt-BR'));
+  const isDisabled = state.status !== 'ready' || Boolean(state.pendingTransactionId);
+
+  return `
+    <div class="financial-filters" aria-label="Filtros dos lançamentos">
+      <div class="form-field">
+        <label for="financial-filter-type">Tipo</label>
+        <select id="financial-filter-type" data-finance-filter-type ${isDisabled ? 'disabled' : ''}>
+          <option value="all" ${state.filterType === 'all' ? 'selected' : ''}>Todos os tipos</option>
+          ${FINANCE_TYPES.map((type) => (
+            `<option value="${type}" ${state.filterType === type ? 'selected' : ''}>${TYPE_LABELS[type]}</option>`
+          )).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="financial-filter-category">Categoria</label>
+        <select id="financial-filter-category" data-finance-filter-category ${isDisabled ? 'disabled' : ''}>
+          <option value="all">Todas as categorias</option>
+          ${categories.map(([id, name]) => (
+            `<option value="${escapeHtml(id)}" ${state.filterCategoryId === id ? 'selected' : ''}>${escapeHtml(name)}</option>`
+          )).join('')}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function editCategoryOptionsMarkup(state, transaction) {
+  const hasCurrentCategory = state.editCategories.some(
+    (category) => category.id === transaction.categoryId,
+  );
+  const currentFallback = hasCurrentCategory ? '' : `
+    <option
+      value="${escapeHtml(transaction.categoryId)}"
+      data-category-type="${transaction.type}"
+      disabled
+    >${escapeHtml(transaction.categoryName)} (inativa)</option>
+  `;
+
+  return `
+    <option value="">Selecione uma categoria</option>
+    ${currentFallback}
+    ${state.editCategories.map((category) => `
+      <option
+        value="${escapeHtml(category.id)}"
+        data-category-type="${category.type}"
+        ${category.id === transaction.categoryId ? 'selected' : ''}
+      >${escapeHtml(category.name)}</option>
+    `).join('')}
+  `;
+}
+
+function transactionEditMarkup(state, transaction) {
+  if (state.isEditCategoryLoading) {
+    return getFeedbackMarkup({
+      status: 'loading',
+      title: 'Carregando categorias…',
+      message: 'Preparando a edição do lançamento.',
+    });
+  }
+
+  const isPending = state.pendingTransactionId === transaction.id;
+  const { start } = getFinanceDateRange(state.period);
+  const formError = state.formError
+    ? `<p class="form-message form-message--error" role="alert">${escapeHtml(state.formError.message)}</p>`
+    : '';
+
+  return `
+    <form class="financial-transaction-edit" data-financial-transaction-edit="${transaction.id}" novalidate>
+      <div class="form-field financial-transaction-edit__description">
+        <label for="financial-edit-description-${transaction.id}">Descrição</label>
+        <input id="financial-edit-description-${transaction.id}" name="description" type="text" maxlength="${FINANCIAL_TRANSACTION_LIMITS.description}" value="${escapeHtml(transaction.description)}" required ${isPending ? 'disabled' : ''}>
+      </div>
+      <div class="form-field">
+        <label for="financial-edit-type-${transaction.id}">Tipo</label>
+        <select id="financial-edit-type-${transaction.id}" name="type" data-financial-edit-type required ${isPending ? 'disabled' : ''}>
+          ${FINANCE_TYPES.map((type) => (
+            `<option value="${type}" ${transaction.type === type ? 'selected' : ''}>${TYPE_LABELS[type]}</option>`
+          )).join('')}
+        </select>
+      </div>
+      <div class="form-field">
+        <label for="financial-edit-amount-${transaction.id}">Valor</label>
+        <input id="financial-edit-amount-${transaction.id}" name="amount" type="text" inputmode="decimal" value="${moneyInputValue(transaction.amountCents)}" required ${isPending ? 'disabled' : ''}>
+      </div>
+      <div class="form-field">
+        <label for="financial-edit-date-${transaction.id}">Data</label>
+        <input id="financial-edit-date-${transaction.id}" name="transactionDate" type="date" min="${start}" max="${lastDateOfPeriod(state.period)}" value="${transaction.transactionDate}" required ${isPending ? 'disabled' : ''}>
+      </div>
+      <div class="form-field financial-transaction-edit__category">
+        <label for="financial-edit-category-${transaction.id}">Categoria</label>
+        <select id="financial-edit-category-${transaction.id}" name="categoryId" data-financial-edit-category required ${isPending ? 'disabled' : ''}>
+          ${editCategoryOptionsMarkup(state, transaction)}
+        </select>
+      </div>
+      <div class="form-field financial-transaction-edit__notes">
+        <label for="financial-edit-notes-${transaction.id}">Observação</label>
+        <textarea id="financial-edit-notes-${transaction.id}" name="notes" maxlength="${FINANCIAL_TRANSACTION_LIMITS.notes}" rows="2" ${isPending ? 'disabled' : ''}>${escapeHtml(transaction.notes)}</textarea>
+      </div>
+      ${formError}
+      <div class="financial-transaction-edit__actions">
+        <button class="secondary-button" type="button" data-financial-edit-cancel ${isPending ? 'disabled' : ''}>Cancelar</button>
+        <button class="primary-button" type="submit" ${isPending ? 'disabled aria-busy="true"' : ''}>${isPending ? 'Salvando…' : 'Salvar alterações'}</button>
+      </div>
+    </form>
+  `;
+}
+
 function transactionFormMarkup(state) {
   const isDisabled = state.status !== 'ready'
     || state.isSubmitting
@@ -178,21 +300,39 @@ function transactionsMarkup(state) {
     });
   }
 
+  if (!state.visibleTransactions.length) {
+    return getFeedbackMarkup({
+      status: 'empty',
+      title: 'Nenhum lançamento corresponde aos filtros',
+      message: 'Altere o tipo ou a categoria para ver outros registros.',
+    });
+  }
+
   return `
     <ol class="financial-transactions" aria-label="Lançamentos do mês">
-      ${state.transactions.map((transaction) => {
+      ${state.visibleTransactions.map((transaction) => {
         const isIncome = transaction.type === 'income';
         const amountPrefix = isIncome ? '+' : '−';
+        const isEditing = state.editingTransactionId === transaction.id;
+        const isPending = state.pendingTransactionId === transaction.id;
         return `
           <li>
             <article class="financial-transaction financial-transaction--${transaction.type}">
-              <div class="financial-transaction__main">
-                <span class="financial-transaction__type">${TYPE_LABELS[transaction.type]}</span>
-                <h3>${escapeHtml(transaction.description)}</h3>
-                <p>${escapeHtml(transaction.categoryName)} · <time datetime="${transaction.transactionDate}">${formatFinanceDate(transaction.transactionDate)}</time></p>
-                ${transaction.notes ? `<small>${escapeHtml(transaction.notes)}</small>` : ''}
-              </div>
-              <strong class="financial-transaction__amount">${amountPrefix}${formatFinanceMoney(transaction.amountCents)}</strong>
+              ${isEditing ? transactionEditMarkup(state, transaction) : `
+                <div class="financial-transaction__main">
+                  <span class="financial-transaction__type">${TYPE_LABELS[transaction.type]}</span>
+                  <h3>${escapeHtml(transaction.description)}</h3>
+                  <p>${escapeHtml(transaction.categoryName)} · <time datetime="${transaction.transactionDate}">${formatFinanceDate(transaction.transactionDate)}</time></p>
+                  ${transaction.notes ? `<small>${escapeHtml(transaction.notes)}</small>` : ''}
+                </div>
+                <div class="financial-transaction__side">
+                  <strong class="financial-transaction__amount">${amountPrefix}${formatFinanceMoney(transaction.amountCents)}</strong>
+                  <div class="financial-transaction__actions">
+                    <button class="secondary-button" type="button" data-financial-transaction-edit="${transaction.id}" ${isPending ? 'disabled' : ''}>Editar</button>
+                    <button class="secondary-button financial-transaction__delete" type="button" data-financial-transaction-delete="${transaction.id}" ${isPending ? 'disabled' : ''}>Excluir</button>
+                  </div>
+                </div>
+              `}
             </article>
           </li>
         `;
@@ -202,6 +342,17 @@ function transactionsMarkup(state) {
 }
 
 export function getFinanceMarkup(state) {
+  const viewState = {
+    filterType: 'all',
+    filterCategoryId: 'all',
+    visibleTransactions: state.transactions,
+    editCategories: [],
+    editingTransactionId: null,
+    isEditCategoryLoading: false,
+    pendingTransactionId: null,
+    operationError: null,
+    ...state,
+  };
   return `
     <section class="route-panel finance-foundation" aria-labelledby="route-heading">
       <header class="finance-foundation__header">
@@ -209,16 +360,18 @@ export function getFinanceMarkup(state) {
         <h1 id="route-heading">Financeiro</h1>
         <p>Registre receitas e despesas e acompanhe os totais do mês.</p>
       </header>
-      ${periodSelectorMarkup(state.period, state.status !== 'ready')}
-      ${summaryMarkup(state.summary)}
-      ${transactionFormMarkup(state)}
+      ${periodSelectorMarkup(viewState.period, viewState.status !== 'ready')}
+      ${summaryMarkup(viewState.summary)}
+      ${transactionFormMarkup(viewState)}
       <section class="financial-history" aria-labelledby="financial-history-heading">
         <div class="financial-history__header">
           <p class="eyebrow">Histórico mensal</p>
           <h2 id="financial-history-heading">Lançamentos</h2>
         </div>
+        ${transactionFilterMarkup(viewState)}
+        ${viewState.operationError ? `<p class="form-message form-message--error" role="alert">${escapeHtml(viewState.operationError.message)}</p>` : ''}
         <div data-financial-transactions-feedback aria-live="polite">
-          ${transactionsMarkup(state)}
+          ${transactionsMarkup(viewState)}
         </div>
       </section>
     </section>
@@ -232,6 +385,12 @@ export function bindFinanceView(
     onNextMonth = () => {},
     onCategoryTypeChange = () => {},
     onCreate = () => {},
+    onFilterTypeChange = () => {},
+    onFilterCategoryChange = () => {},
+    onEdit = () => {},
+    onEditCancel = () => {},
+    onUpdate = () => {},
+    onDelete = () => {},
     onRetry = () => {},
   },
 ) {
@@ -241,6 +400,53 @@ export function bindFinanceView(
     ?.addEventListener('click', onNextMonth);
   root.querySelectorAll('[data-finance-category-type]').forEach((button) => {
     button.addEventListener('click', () => onCategoryTypeChange(button.dataset.financeCategoryType));
+  });
+  root.querySelector('[data-finance-filter-type]')
+    ?.addEventListener('change', (event) => onFilterTypeChange(event.currentTarget.value));
+  root.querySelector('[data-finance-filter-category]')
+    ?.addEventListener('change', (event) => onFilterCategoryChange(event.currentTarget.value));
+  root.querySelectorAll('button[data-financial-transaction-edit]').forEach((button) => {
+    button.addEventListener('click', () => onEdit(button.dataset.financialTransactionEdit));
+  });
+  root.querySelectorAll('[data-financial-transaction-delete]').forEach((button) => {
+    button.addEventListener('click', () => onDelete(button.dataset.financialTransactionDelete));
+  });
+  root.querySelectorAll('[data-financial-transaction-edit]').forEach((form) => {
+    if (form.tagName !== 'FORM') {
+      return;
+    }
+
+    const typeSelect = form.querySelector('[data-financial-edit-type]');
+    const categorySelect = form.querySelector('[data-financial-edit-category]');
+    const syncCategoryOptions = () => {
+      const selectedType = typeSelect.value;
+      [...categorySelect.options].forEach((option) => {
+        const optionType = option.dataset.categoryType;
+        option.hidden = Boolean(optionType && optionType !== selectedType);
+        option.disabled = Boolean(optionType && optionType !== selectedType);
+      });
+      const selectedOption = categorySelect.options[categorySelect.selectedIndex];
+      if (selectedOption?.disabled) {
+        categorySelect.value = '';
+      }
+    };
+    typeSelect?.addEventListener('change', syncCategoryOptions);
+    syncCategoryOptions();
+    form.querySelector('[data-financial-edit-cancel]')
+      ?.addEventListener('click', onEditCancel);
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      onUpdate({
+        transactionId: form.dataset.financialTransactionEdit,
+        type: formData.get('type'),
+        description: formData.get('description'),
+        amount: formData.get('amount'),
+        transactionDate: formData.get('transactionDate'),
+        categoryId: formData.get('categoryId'),
+        notes: formData.get('notes'),
+      });
+    });
   });
   root.querySelector('[data-financial-transactions-feedback] [data-feedback-action]')
     ?.addEventListener('click', onRetry);

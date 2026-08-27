@@ -1,10 +1,10 @@
 import { getFeedbackMarkup } from '../../ui/feedback.js';
 import {
   createEmptyDashboardSummary,
-  formatCurrency,
   hasDashboardActivity,
   normalizeDashboardSummary,
 } from './dashboard-summary.js';
+import { formatFinanceMoney } from '../finance/utils/finance-money.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -27,9 +27,9 @@ function cardsMarkup(summary) {
           <span class="summary-card__symbol" aria-hidden="true">$</span>
         </div>
         <dl class="finance-summary">
-          <div><dt>Receitas</dt><dd>${formatCurrency(summary.finance.income)}</dd></div>
-          <div><dt>Despesas</dt><dd>${formatCurrency(summary.finance.expenses)}</dd></div>
-          <div class="finance-summary__balance"><dt>Saldo</dt><dd>${formatCurrency(summary.finance.balance)}</dd></div>
+          <div><dt>Receitas</dt><dd>${formatFinanceMoney(summary.finance.incomeCents)}</dd></div>
+          <div><dt>Despesas</dt><dd>${formatFinanceMoney(summary.finance.expenseCents)}</dd></div>
+          <div class="finance-summary__balance"><dt>Saldo</dt><dd>${formatFinanceMoney(summary.finance.balanceCents)}</dd></div>
         </dl>
         <a class="card-link" href="#/financeiro">Abrir financeiro</a>
       </article>

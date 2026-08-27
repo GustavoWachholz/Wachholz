@@ -8,8 +8,12 @@ import { renderHouseholdView } from './household/household-view.js';
 import { validatePublicConfig } from './lib/public-config.js';
 import { getSupabaseClient } from './lib/supabase-client.js';
 import { createFinanceController } from './modules/finance/finance-context.js';
+import { downloadFinancialCsv } from './modules/finance/financial-csv.js';
 import { createFinancialCategoryService } from './modules/finance/services/financial-category-service.js';
 import { createFinancialTransactionService } from './modules/finance/services/financial-transaction-service.js';
+import { formatFinanceMoney } from './modules/finance/utils/finance-money.js';
+import { createDashboardController } from './modules/dashboard/dashboard-context.js';
+import { createDashboardSummaryService } from './modules/dashboard/dashboard-service.js';
 import { getDocumentTitle, resolveProtectedRoute } from './router/app-routes.js';
 import { createHashRouter } from './router/hash-router.js';
 import { renderAppShell } from './shell/app-shell-view.js';
@@ -68,10 +72,15 @@ async function bootstrap(documentRoot) {
     const shoppingListService = createShoppingListService(client);
     const shoppingItemService = createShoppingItemService(client);
     const shoppingItemsRealtime = createShoppingItemsRealtime(client);
+    const dashboardSummaryService = createDashboardSummaryService({
+      transactionService: financialTransactionService,
+      shoppingListService,
+    });
     let sessionController;
     let authenticatedUser = null;
     let authState = { status: 'loading', user: null, error: null };
     let householdState = { status: 'idle', household: null, error: null };
+    let dashboardState = { status: 'idle', summary: null, error: null };
     let financeState;
     let shoppingState = { status: 'idle', lists: [], error: null };
     let shoppingItemsState = { status: 'idle', listId: null, items: [], error: null };
@@ -113,6 +122,27 @@ async function bootstrap(documentRoot) {
       );
     };
 
+    const requestFinancialTransactionDeletion = (transactionId) => {
+      const transaction = financeState.transactions.find(
+        (candidate) => candidate.id === transactionId,
+      );
+
+      if (!transaction || financeState.status !== 'ready') {
+        return;
+      }
+
+      openConfirmationDialog(
+        documentRoot,
+        {
+          title: 'Excluir este lançamento?',
+          message: `“${transaction.description}” no valor de ${formatFinanceMoney(transaction.amountCents)} será removido do mês.`,
+          confirmLabel: 'Excluir lançamento',
+          cancelLabel: 'Manter lançamento',
+        },
+        { onConfirm: () => financeController.remove({ transactionId }) },
+      );
+    };
+
     const renderAuthenticatedSurface = ({ focusContent = false } = {}) => {
       const isAuthenticated = authState.status === 'authenticated';
       publicRoot.hidden = isAuthenticated;
@@ -148,7 +178,7 @@ async function bootstrap(documentRoot) {
           user: authState.user,
           error: householdState.error,
           sessionError: authState.error,
-          dashboardState: { status: 'empty' },
+          dashboardState,
           financeState,
           shoppingState,
           shoppingItemsState,
@@ -156,6 +186,7 @@ async function bootstrap(documentRoot) {
         {
           onLogout: requestLogout,
           onRetry: () => householdController.load(authenticatedUser),
+          onDashboardRetry: () => dashboardController.load(householdState.householdId),
           onFinancePreviousMonth: () => financeController.shiftMonth(-1),
           onFinanceNextMonth: () => financeController.shiftMonth(1),
           onFinanceCategoryTypeChange: (type) => financeController.selectCategoryType(type),
@@ -163,7 +194,26 @@ async function bootstrap(documentRoot) {
             ...input,
             userId: authenticatedUser?.id,
           }),
+          onFinanceFilterTypeChange: (type) => financeController.setFilters({ type }),
+          onFinanceFilterCategoryChange: (categoryId) => (
+            financeController.setFilters({ categoryId })
+          ),
+          onFinanceEdit: (transactionId) => financeController.startEdit(transactionId),
+          onFinanceEditCancel: () => financeController.cancelEdit(),
+          onFinanceUpdate: (input) => financeController.update(input),
+          onFinanceDelete: requestFinancialTransactionDeletion,
           onFinanceRetry: () => financeController.load({
+            householdId: householdState.householdId,
+            period: financeState.period,
+            type: financeState.categoryType,
+          }),
+          onSettingsPreviousMonth: () => financeController.shiftMonth(-1),
+          onSettingsNextMonth: () => financeController.shiftMonth(1),
+          onSettingsExport: () => downloadFinancialCsv({
+            transactions: financeState.transactions,
+            period: financeState.period,
+          }),
+          onSettingsRetry: () => financeController.load({
             householdId: householdState.householdId,
             period: financeState.period,
             type: financeState.categoryType,
@@ -205,7 +255,15 @@ async function bootstrap(documentRoot) {
 
       if (
         routeState.status === 'ready'
-        && route?.id === 'finance'
+        && route?.id === 'dashboard'
+        && dashboardState.status === 'idle'
+      ) {
+        dashboardController.load(householdState.householdId);
+      }
+
+      if (
+        routeState.status === 'ready'
+        && (route?.id === 'finance' || route?.id === 'settings')
         && financeState.status === 'idle'
       ) {
         financeController.load({ householdId: householdState.householdId });
@@ -265,6 +323,16 @@ async function bootstrap(documentRoot) {
       },
     });
 
+    const dashboardController = createDashboardController({
+      summaryService: dashboardSummaryService,
+      onStateChange: (state) => {
+        const finishedLoading = dashboardState.status === 'loading'
+          && (state.status === 'ready' || state.status === 'error');
+        dashboardState = state;
+        renderAuthenticatedSurface({ focusContent: finishedLoading });
+      },
+    });
+
     const financeController = createFinanceController({
       categoryService: financialCategoryService,
       transactionService: financialTransactionService,
@@ -308,6 +376,10 @@ async function bootstrap(documentRoot) {
       windowTarget: window,
       onRouteChange: (resolution) => {
         currentHash = resolution.path;
+        if (resolution.route?.id === 'dashboard') {
+          dashboardController.clear();
+          return;
+        }
         renderAuthenticatedSurface({ focusContent: true });
       },
     });
@@ -326,6 +398,7 @@ async function bootstrap(documentRoot) {
 
         if (userChanged) {
           householdController.load(authenticatedUser);
+          dashboardController.clear();
           financeController.clear();
           shoppingItemsController.clear();
           shoppingController.clear();
@@ -334,6 +407,7 @@ async function bootstrap(documentRoot) {
         }
       } else {
         authenticatedUser = null;
+        dashboardController.clear();
         financeController.clear();
         shoppingItemsController.clear();
         shoppingController.clear();

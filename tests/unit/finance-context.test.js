@@ -46,6 +46,8 @@ function createTransactionService(overrides = {}) {
   return {
     listByPeriod: async () => [EXPENSE],
     create: async () => INCOME,
+    update: async () => EXPENSE,
+    remove: async ({ transactionId }) => transactionId,
     ...overrides,
   };
 }
@@ -163,6 +165,92 @@ describe('createFinanceController', () => {
     assert.equal(controller.getState().isSubmitting, false);
     assert.match(controller.getState().formError.message, /valor inválido/i);
     assert.deepEqual(controller.getState().transactions, [EXPENSE]);
+  });
+
+  it('combina filtros de tipo e categoria e recalcula os indicadores visíveis', async () => {
+    const controller = createFinanceController({
+      categoryService: createCategoryService(),
+      transactionService: createTransactionService({ listByPeriod: async () => [EXPENSE, INCOME] }),
+      now: fixedNow,
+    });
+    await controller.load({ householdId: HOUSEHOLD_ID });
+
+    controller.setFilters({ type: 'income' });
+    assert.deepEqual(controller.getState().visibleTransactions, [INCOME]);
+    assert.deepEqual(controller.getState().summary, {
+      incomeCents: 500000, expenseCents: 0, balanceCents: 500000, transactionCount: 1,
+    });
+
+    controller.setFilters({ categoryId: INCOME_CATEGORY.id });
+    assert.equal(controller.getState().filterCategoryId, INCOME_CATEGORY.id);
+    controller.setFilters({ type: 'expense' });
+    assert.equal(controller.getState().filterCategoryId, 'all');
+    assert.deepEqual(controller.getState().visibleTransactions, [EXPENSE]);
+  });
+
+  it('edita todos os campos, reordena e recalcula os totais', async () => {
+    const updated = Object.freeze({
+      ...EXPENSE,
+      type: 'income',
+      categoryId: INCOME_CATEGORY.id,
+      categoryName: INCOME_CATEGORY.name,
+      description: 'Reembolso',
+      amountCents: 20000,
+      transactionDate: '2026-08-25',
+      notes: 'Ajustado',
+      updatedAt: '2026-08-26T12:00:00Z',
+    });
+    const updateCalls = [];
+    const controller = createFinanceController({
+      categoryService: createCategoryService(),
+      transactionService: createTransactionService({
+        update: async (input) => { updateCalls.push(input); return updated; },
+      }),
+      now: fixedNow,
+    });
+    await controller.load({ householdId: HOUSEHOLD_ID });
+    await controller.startEdit(EXPENSE.id);
+    await controller.update({
+      transactionId: EXPENSE.id,
+      type: 'income',
+      description: 'Reembolso',
+      amount: '200,00',
+      transactionDate: '2026-08-25',
+      categoryId: INCOME_CATEGORY.id,
+      notes: 'Ajustado',
+    });
+
+    assert.deepEqual(updateCalls[0].categories, [INCOME_CATEGORY, EXPENSE_CATEGORY]);
+    assert.equal(updateCalls[0].householdId, HOUSEHOLD_ID);
+    assert.deepEqual(controller.getState().transactions, [updated]);
+    assert.equal(controller.getState().summary.balanceCents, 20000);
+    assert.equal(controller.getState().editingTransactionId, null);
+    assert.equal(controller.getState().notice, 'Lançamento atualizado.');
+  });
+
+  it('remove após confirmação externa e preserva os dados quando a exclusão falha', async () => {
+    const controller = createFinanceController({
+      categoryService: createCategoryService(),
+      transactionService: createTransactionService(),
+      now: fixedNow,
+    });
+    await controller.load({ householdId: HOUSEHOLD_ID });
+    await controller.remove({ transactionId: EXPENSE.id });
+    assert.deepEqual(controller.getState().transactions, []);
+    assert.equal(controller.getState().summary.transactionCount, 0);
+    assert.equal(controller.getState().notice, 'Lançamento excluído.');
+
+    const failing = createFinanceController({
+      categoryService: createCategoryService(),
+      transactionService: createTransactionService({
+        remove: async () => { throw new Error('Falha ao excluir'); },
+      }),
+      now: fixedNow,
+    });
+    await failing.load({ householdId: HOUSEHOLD_ID });
+    await failing.remove({ transactionId: EXPENSE.id });
+    assert.deepEqual(failing.getState().transactions, [EXPENSE]);
+    assert.match(failing.getState().operationError.message, /falha ao excluir/i);
   });
 
   it('expõe falha de carga e descarta resposta antiga depois de limpar', async () => {

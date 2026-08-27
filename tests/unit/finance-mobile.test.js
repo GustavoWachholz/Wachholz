@@ -19,6 +19,9 @@ describe('financeiro mobile first', () => {
     assert.match(css, /\.financial-transaction\s*{[\s\S]*?display:\s*grid[\s\S]*?min-width:\s*0/);
     assert.match(css, /@media \(min-width:\s*40rem\)[\s\S]*?\.financial-entry-form\s*{[\s\S]*?grid-template-columns:/);
     assert.match(css, /@media \(min-width:\s*40rem\)[\s\S]*?\.financial-transaction\s*{[\s\S]*?grid-template-columns:/);
+    assert.match(css, /\.financial-transaction__actions button,[\s\S]*?min-height:\s*44px/);
+    assert.match(css, /\.financial-transaction-edit\s*{[\s\S]*?grid-column:\s*1 \/ -1/);
+    assert.match(css, /\.financial-filters\s*{[\s\S]*?display:\s*grid/);
     assert.doesNotMatch(css, /\.financial-transactions\s+table|\.financial-transaction\s*{[^}]*width:\s*\d{3,}px/);
   });
 
@@ -31,6 +34,8 @@ describe('financeiro mobile first', () => {
     assert.match(app, /createFinanceController/);
     assert.match(app, /transactionService:\s*financialTransactionService/);
     assert.match(app, /route\?\.id === 'finance'[\s\S]*?financeController\.load/);
+    assert.match(app, /requestFinancialTransactionDeletion[\s\S]*?financeController\.remove/);
+    assert.match(app, /onFinanceUpdate:\s*\(input\) => financeController\.update/);
     assert.match(shell, /bindFinanceView/);
     assert.match(shell, /onCreate:\s*onFinanceCreate/);
     assert.doesNotMatch(app, /localStorage|sessionStorage/);
