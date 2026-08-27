@@ -143,7 +143,7 @@ Critério de aceitação: a página abre localmente em 320 px sem rolagem horizo
 
 Objetivo: preparar acesso a dados e estrutura persistente sem incluir autenticação visual.
 
-Estado: implementação local concluída. A aplicação do esquema no projeto Supabase permanece pendente.
+Estado: implementação local concluída. As migrations `001`, `002` e `003` foram aplicadas e registradas no projeto Supabase remoto em 27/08/2026; as seis tabelas, o RLS e os privilégios foram verificados. A inicialização do cliente no navegador ainda depende da configuração pública em `js/config.js`.
 
 - encapsular a criação do cliente Supabase
 - criar scripts SQL de tabelas, constraints e índices
@@ -158,7 +158,7 @@ Critério de aceitação: cliente inicializa com a chave pública e o esquema po
 
 Objetivo: implementar exclusivamente o ciclo de autenticação.
 
-Estado: implementação local concluída. O teste com sessão real permanece pendente até a configuração do Supabase e a criação dos usuários.
+Estado: implementação local concluída. O banco remoto está disponível; o teste com sessão real permanece pendente até a configuração pública do cliente e a criação dos usuários de teste.
 
 - login por e-mail e senha
 - recuperação e observação de sessão
@@ -173,7 +173,7 @@ Critério de aceitação: usuário válido entra e mantém a sessão após recar
 
 Objetivo: estabelecer o isolamento de dados da casa.
 
-Estado: implementação local concluída. A validação integrada permanece pendente até que as migrations sejam aplicadas a um projeto Supabase e os três usuários descritos em `supabase/RLS_TEST_PLAN.md` estejam disponíveis.
+Estado: implementação local concluída. As migrations e a estrutura de RLS foram validadas no banco remoto, com 18 policies, RLS nas seis tabelas e nenhum privilégio para `anon`. O cenário integrado permanece pendente até que os três usuários descritos em `supabase/RLS_TEST_PLAN.md` estejam disponíveis.
 
 - buscar a household do usuário autenticado
 - manter `householdId` no estado da aplicação
@@ -268,7 +268,7 @@ Critério de aceitação: CRUD completo funciona no celular e mantém a ordenaç
 
 Objetivo: sincronizar a lista entre dispositivos.
 
-Estado: implementação local concluída, com canais filtrados por lista, reconciliação segura e ordenada dos três tipos de evento, aviso não bloqueante em caso de falha e descarte da assinatura ao trocar de tela, lista, sessão ou página. A validação entre dois dispositivos depende da configuração do Supabase e da aplicação da migration `003_shopping_items_realtime.sql`.
+Estado: implementação local concluída, com canais filtrados por lista, reconciliação segura e ordenada dos três tipos de evento, aviso não bloqueante em caso de falha e descarte da assinatura ao trocar de tela, lista, sessão ou página. A migration `003_shopping_items_realtime.sql` foi aplicada e a publicação Realtime com identidade completa foi verificada. A validação entre dois dispositivos depende da configuração pública do cliente e dos usuários de teste.
 
 - assinar `INSERT`, `UPDATE` e `DELETE`
 - filtrar eventos pela lista ou household atual
@@ -283,7 +283,7 @@ Critério de aceitação: dois dispositivos convergem para o mesmo estado sem re
 
 Objetivo: preparar regras e consultas antes do CRUD.
 
-Estado: implementação local concluída, com seletor mensal mobile first, navegação segura entre anos, intervalo semiaberto para consultas, categorias filtradas por household e tipo, datas sem deslocamento de fuso e valores representados em centavos inteiros. A validação integrada das categorias depende do Supabase configurado.
+Estado: implementação local concluída, com seletor mensal mobile first, navegação segura entre anos, intervalo semiaberto para consultas, categorias filtradas por household e tipo, datas sem deslocamento de fuso e valores representados em centavos inteiros. A tabela e as policies de categorias estão ativas no banco remoto; a validação funcional depende da configuração pública do cliente e dos usuários de teste.
 
 - carregar categorias por tipo
 - selecionar e navegar entre meses
@@ -299,7 +299,7 @@ Critério de aceitação: mês e categorias corretos são carregados sem exibir 
 
 Objetivo: criar e consultar receitas e despesas.
 
-Estado: implementação local concluída, com cadastro persistente no Supabase, validação por tipo e mês, valores mantidos em centavos inteiros, lista cronológica em cards mobile e totais recalculados após cada inclusão. Categorias desativadas não podem receber novos lançamentos, mas continuam identificadas no histórico. A validação integrada depende da configuração do Supabase.
+Estado: implementação local concluída, com cadastro persistente no Supabase, validação por tipo e mês, valores mantidos em centavos inteiros, lista cronológica em cards mobile e totais recalculados após cada inclusão. Categorias desativadas não podem receber novos lançamentos, mas continuam identificadas no histórico. As tabelas e policies financeiras estão ativas no banco remoto; a validação funcional depende da configuração pública do cliente e dos usuários de teste.
 
 - cadastrar lançamento
 - validar descrição, valor, data e categoria
@@ -360,6 +360,7 @@ Critério de aceitação: todos os itens da Definition of Done estão atendidos,
 
 ```text
 index.html
+├── .mcp.json                 # MCP limitado ao projeto Supabase de desenvolvimento
 ├── package.json              # somente metadados e `type: module`; sem dependências
 ├── css/
 │   ├── base.css
@@ -467,6 +468,7 @@ index.html
 │       ├── shopping-mobile.test.js
 │       ├── shopping-realtime-migration.test.js
 │       ├── supabase-client.test.js
+│       ├── supabase-mcp-config.test.js
 │       └── supabase-result.test.js
 └── .github/
     └── workflows/
